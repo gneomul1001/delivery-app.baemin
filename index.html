@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mock Delivery Service</title>
+    <title>가짜의 민족 - 하위 카테고리 메뉴</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
@@ -17,13 +17,9 @@
 <header class="baemin-navy text-white p-4 sticky top-0 z-50 shadow-md">
     <div class="max-w-4xl mx-auto flex flex-col gap-3">
         <div class="flex justify-between items-center">
-            <div onclick="showSection('category-section')" class="text-xl font-black cursor-pointer tracking-tighter">
-                가짜의 민족
-            </div>
+            <div onclick="showSection('category-section')" class="text-xl font-black cursor-pointer tracking-tighter">가짜의 민족</div>
             <div class="flex gap-4 items-center">
-                <div id="region-selector" class="text-xs font-bold cursor-pointer opacity-80">
-                    📍 서울특별시 ▼
-                </div>
+                <div id="region-selector" class="text-xs font-bold cursor-pointer opacity-80">📍 서울특별시 ▼</div>
                 <button onclick="showSection('cart-section')" class="relative text-sm font-bold">
                     🛒 장바구니 <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-[10px] rounded-full px-1">0</span>
                 </button>
@@ -37,8 +33,7 @@
 </header>
 
 <main class="max-w-4xl mx-auto p-4 mb-20">
-    <section id="category-section" class="grid grid-cols-4 gap-4 text-center mb-8">
-        </section>
+    <section id="category-section" class="grid grid-cols-4 gap-4 text-center mb-8"></section>
 
     <section id="restaurant-list-section" class="hidden">
         <div class="flex justify-between items-center mb-4">
@@ -51,14 +46,32 @@
 
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
-        <div class="bg-white p-4 shadow-sm mb-4">
-            <div class="flex justify-between mb-4">
-                <h3 class="font-bold">메뉴 목록</h3>
-                <button onclick="showAddMenuModal()" class="text-blue-500 text-sm font-bold">+ 메뉴 등록</button>
+        
+        <div id="menu-sub-categories" class="flex flex-col gap-4">
+            <div class="bg-white p-4 shadow-sm">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="font-bold text-lg">🍔 일반메뉴</h3>
+                    <button onclick="showAddMenuModal('normal')" class="text-blue-500 text-sm font-bold">+ 등록</button>
+                </div>
+                <div id="menu-container-normal" class="grid gap-4"></div>
             </div>
-            <div id="menu-container" class="grid gap-4"></div>
+            <div class="bg-white p-4 shadow-sm">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="font-bold text-lg">🍱 세트메뉴</h3>
+                    <button onclick="showAddMenuModal('set')" class="text-blue-500 text-sm font-bold">+ 등록</button>
+                </div>
+                <div id="menu-container-set" class="grid gap-4"></div>
+            </div>
+            <div class="bg-white p-4 shadow-sm mb-4">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="font-bold text-lg">🍟 사이드메뉴</h3>
+                    <button onclick="showAddMenuModal('side')" class="text-blue-500 text-sm font-bold">+ 등록</button>
+                </div>
+                <div id="menu-container-side" class="grid gap-4"></div>
+            </div>
         </div>
-        <div class="flex gap-2">
+
+        <div class="flex gap-2 p-4">
             <button onclick="showSection('restaurant-list-section')" class="flex-1 py-3 bg-gray-200 rounded font-bold">뒤로</button>
             <button onclick="showSection('category-section')" class="flex-1 py-3 border border-gray-300 bg-white rounded font-bold">🏠 홈으로</button>
         </div>
@@ -86,19 +99,21 @@
 </main>
 
 <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-[100]">
-    <div class="bg-white w-full max-w-md p-6 rounded-xl">
+    <div class="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
         <h3 id="modal-title" class="text-lg font-bold mb-4">입력</h3>
         <div id="modal-content" class="flex flex-col gap-3"></div>
         <div class="flex gap-2 mt-6">
-            <button onclick="closeModal()" class="flex-1 py-2 bg-gray-200 rounded">취소</button>
-            <button id="modal-confirm-btn" class="flex-1 py-2 baemin-navy text-white rounded">확인</button>
+            <button onclick="closeModal()" class="flex-1 py-2 bg-gray-200 rounded font-bold">취소</button>
+            <button id="modal-confirm-btn" class="flex-1 py-2 baemin-navy text-white rounded font-bold">확인</button>
         </div>
     </div>
 </div>
 
 <script>
-    const categories = ["분식", "치킨", "패스트푸드", "피자", "족발", "야식", "국 탕 찌개", "찜", "도시락", "베이커리", "디저트", "카페", "한식", "중식", "일식", "동남아", "남아시아", "서아시아", "중아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "아프리카", "아메리칸", "남미", "북미", "오세아니아"];
-    let db = JSON.parse(localStorage.getItem('deliveryDB')) || { restaurants: [], cart: [] };
+    const categories = ["분식", "치킨", "패스트푸드", "피자", "족발", "야식", "국 탕 찌개", "찜", "도시락", "한식", "중식", "일식", "동남아", "남아시아", "서아시아", "중아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "아프리카", "아메리칸", "남미", "북미", "오세아니아"];
+    
+    // 데이터 구조 변경: menus가 카테고리별로 객체화됨
+    let db = JSON.parse(localStorage.getItem('deliveryDB_v2')) || { restaurants: [], cart: [] };
     let currentCategory = "";
     let currentRestaurantId = null;
 
@@ -150,35 +165,68 @@
         renderMenus(res);
     }
 
+    // 각 하위 카테고리별로 렌더링하도록 수정
     function renderMenus(res) {
-        const container = document.getElementById('menu-container');
-        container.innerHTML = "";
-        if(!res.menus || res.menus.length === 0) container.innerHTML = "<p class='text-center py-4 text-gray-400'>메뉴를 추가해주세요.</p>";
-        res.menus?.forEach((m) => {
-            const div = document.createElement('div');
-            div.className = "flex justify-between items-center py-3 border-b border-gray-50 last:border-0";
-            div.innerHTML = `<div class="flex gap-3 items-center">${m.img ? `<img src="${m.img}" class="w-14 h-14 object-cover rounded">` : `<div class="w-14 h-14 bg-gray-50 rounded"></div>`}<div><p class="font-bold text-gray-700">${m.name}</p><p class="text-sm text-[#2ac1bc] font-bold">${parseInt(m.price).toLocaleString()}원</p></div></div><button onclick="addToCart('${res.name}', '${m.name}', ${m.price})" class="px-4 py-1.5 border border-[#2ac1bc] text-[#2ac1bc] text-xs font-bold rounded-full">담기</button>`;
-            container.appendChild(div);
+        const subCats = ['normal', 'set', 'side'];
+        subCats.forEach(cat => {
+            const container = document.getElementById(`menu-container-${cat}`);
+            container.innerHTML = "";
+            const menus = res.menus[cat] || [];
+            
+            if(menus.length === 0) {
+                container.innerHTML = "<p class='text-xs text-gray-400 py-2'>등록된 메뉴가 없습니다.</p>";
+            } else {
+                menus.forEach((m) => {
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-center py-3 border-b border-gray-50 last:border-0";
+                    div.innerHTML = `
+                        <div class="flex gap-3 items-center">
+                            ${m.img ? `<img src="${m.img}" class="w-14 h-14 object-cover rounded">` : `<div class="w-14 h-14 bg-gray-50 rounded"></div>`}
+                            <div>
+                                <p class="font-bold text-gray-700">${m.name}</p>
+                                <p class="text-sm text-[#2ac1bc] font-bold">${parseInt(m.price).toLocaleString()}원</p>
+                            </div>
+                        </div>
+                        <button onclick="addToCart('${res.name}', '${m.name}', ${m.price})" class="px-4 py-1.5 border border-[#2ac1bc] text-[#2ac1bc] text-xs font-bold rounded-full">담기</button>`;
+                    container.appendChild(div);
+                });
+            }
         });
     }
 
     function showAddRestaurantModal() {
-        openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="border p-3 rounded-lg text-sm">`, () => {
+        openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
             const name = document.getElementById('new-res-name').value;
             if(!name) return;
-            db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: [] });
+            // 초기 메뉴 구조를 카테고리별 배열로 생성
+            db.restaurants.push({ 
+                id: Date.now(), 
+                category: currentCategory, 
+                name: name, 
+                menus: { normal: [], set: [], side: [] } 
+            });
             saveDB(); renderRestaurants(); closeModal();
         });
     }
 
-    function showAddMenuModal() {
-        openModal("메뉴 등록", `<input id="new-menu-name" type="text" placeholder="메뉴 이름" class="border p-3 rounded-lg text-sm"><input id="new-menu-price" type="number" placeholder="가격 (숫자만)" class="border p-3 rounded-lg text-sm"><input id="new-menu-img" type="text" placeholder="이미지 URL (선택)" class="border p-3 rounded-lg text-sm">`, () => {
+    // 메뉴 유형(type)을 인자로 받아 해당 카테고리에 저장
+    function showAddMenuModal(type) {
+        const typeNames = { normal: '일반메뉴', set: '세트메뉴', side: '사이드메뉴' };
+        openModal(`${typeNames[type]} 등록`, `
+            <input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-3 rounded-lg text-sm mb-2">
+            <input id="new-menu-price" type="number" placeholder="가격 (숫자만)" class="w-full border p-3 rounded-lg text-sm mb-2">
+            <input id="new-menu-img" type="text" placeholder="이미지 URL (선택)" class="w-full border p-3 rounded-lg text-sm">
+        `, () => {
             const name = document.getElementById('new-menu-name').value;
             const price = document.getElementById('new-menu-price').value;
             const img = document.getElementById('new-menu-img').value;
             if(!name || !price) return;
+            
             const res = db.restaurants.find(r => r.id === currentRestaurantId);
-            res.menus.push({ name, price, img });
+            // 만약 구버전 데이터라면 구조 초기화
+            if(!res.menus.normal) res.menus = { normal: [], set: [], side: [] };
+            
+            res.menus[type].push({ name, price, img });
             saveDB(); renderMenus(res); closeModal();
         });
     }
@@ -186,6 +234,7 @@
     function addToCart(resName, menuName, price) {
         db.cart.push({ resName, menuName, price });
         saveDB(); updateCartCount();
+        alert('장바구니에 담겼습니다!');
     }
 
     function updateCartCount() {
@@ -223,13 +272,16 @@
         }, 2000);
     }
 
-    function saveDB() { localStorage.setItem('deliveryDB', JSON.stringify(db)); }
+    // 데이터 저장을 위한 키값 변경 (이전 데이터와 충돌 방지)
+    function saveDB() { localStorage.setItem('deliveryDB_v2', JSON.stringify(db)); }
+    
     function openModal(title, content, onConfirm) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-content').innerHTML = content;
         document.getElementById('modal-confirm-btn').onclick = onConfirm;
         document.getElementById('modal').classList.remove('hidden');
     }
+    
     function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 
     init();
