@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Delivery Service</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f6f6f6; }
+        .baemin-navy { background-color: #2ac1bc; } 
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<header class="baemin-navy text-white p-4 sticky top-0 z-50 shadow-md">
+    <div class="max-w-4xl mx-auto flex flex-col gap-3">
+        <div class="flex justify-between items-center">
+            <div onclick="showSection('category-section')" class="text-xl font-black cursor-pointer tracking-tighter">
+                MOCK DELIVERY
+            </div>
+            <div class="flex gap-4 items-center">
+                <div id="region-selector" class="text-xs font-bold cursor-pointer opacity-80">
+                    📍 부산광역시 ▼
+                </div>
+                <button onclick="showSection('cart-section')" class="relative text-sm font-bold">
+                    🛒 장바구니 <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-[10px] rounded-full px-1">0</span>
+                </button>
+            </div>
+        </div>
+        <div class="relative">
+            <input type="text" placeholder="먹고 싶은 음식을 찾아보세요!" class="w-full p-3 rounded-lg text-black focus:outline-none text-sm">
+            <button class="absolute right-3 top-3 text-gray-400">🔍</button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-4xl mx-auto p-4 mb-20">
+    <section id="category-section" class="grid grid-cols-4 gap-4 text-center mb-8">
+        </section>
+
+    <section id="restaurant-list-section" class="hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 id="current-category-name" class="text-xl font-bold"></h2>
+            <button onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
+        </div>
+        <div id="restaurants-container" class="grid gap-4"></div>
+        <button onclick="showSection('category-section')" class="mt-6 w-full py-3 border border-gray-300 rounded text-gray-500 bg-white">🏠 홈으로 돌아가기</button>
+    </section>
+
+    <section id="restaurant-detail-section" class="hidden">
+        <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
+        <div class="bg-white p-4 shadow-sm mb-4">
+            <div class="flex justify-between mb-4">
+                <h3 class="font-bold">메뉴 목록</h3>
+                <button onclick="showAddMenuModal()" class="text-blue-500 text-sm font-bold">+ 메뉴 등록</button>
+            </div>
+            <div id="menu-container" class="grid gap-4"></div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="showSection('restaurant-list-section')" class="flex-1 py-3 bg-gray-200 rounded font-bold">뒤로</button>
+            <button onclick="showSection('category-section')" class="flex-1 py-3 border border-gray-300 bg-white rounded font-bold">🏠 홈으로</button>
+        </div>
+    </section>
+
+    <section id="cart-section" class="hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">장바구니</h2>
+            <button onclick="showSection('category-section')" class="text-sm text-gray-400">쇼핑 계속하기</button>
+        </div>
+        <div id="cart-items" class="bg-white p-4 rounded-lg shadow-sm mb-4"></div>
+        <div id="cart-total" class="text-right font-bold text-lg mb-4"></div>
+        <button onclick="startDeliverySimulation()" id="order-btn" class="w-full py-4 baemin-navy text-white rounded-lg font-bold shadow-lg">주문하기</button>
+    </section>
+
+    <section id="delivery-status-section" class="hidden text-center p-10">
+        <div class="text-5xl mb-4 animate-bounce">🛵</div>
+        <h2 id="status-text" class="text-2xl font-bold mb-2 text-gray-800">주문 확인 중...</h2>
+        <p class="text-gray-400 text-sm mb-6">실제 배달이 되지 않는 가짜 사이트입니다.</p>
+        <div class="w-full bg-gray-200 h-3 rounded-full overflow-hidden mb-8">
+            <div id="progress-bar" class="baemin-navy h-full transition-all duration-1000" style="width: 0%"></div>
+        </div>
+        <button onclick="showSection('category-section')" class="w-full py-3 baemin-navy text-white rounded-lg font-bold">🏠 처음 화면으로</button>
+    </section>
+</main>
+
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-[100]">
+    <div class="bg-white w-full max-w-md p-6 rounded-xl">
+        <h3 id="modal-title" class="text-lg font-bold mb-4">입력</h3>
+        <div id="modal-content" class="flex flex-col gap-3"></div>
+        <div class="flex gap-2 mt-6">
+            <button onclick="closeModal()" class="flex-1 py-2 bg-gray-200 rounded">취소</button>
+            <button id="modal-confirm-btn" class="flex-1 py-2 baemin-navy text-white rounded">확인</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const categories = ["한식", "중식", "일식", "동남아", "남아시아", "서아시아", "중아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "아프리카", "아메리칸", "남미", "북미", "치킨", "피자", "족발", "야식", "도시락"];
+    let db = JSON.parse(localStorage.getItem('deliveryDB')) || { restaurants: [], cart: [] };
+    let currentCategory = "";
+    let currentRestaurantId = null;
+
+    function init() {
+        const catContainer = document.getElementById('category-section');
+        catContainer.innerHTML = ""; 
+        categories.forEach(cat => {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:scale-105 transition-transform border border-transparent hover:border-[#2ac1bc]";
+            div.innerHTML = `<div class="text-2xl mb-1">🍴</div><div class="text-xs font-bold text-gray-700">${cat}</div>`;
+            div.onclick = () => showRestaurantList(cat);
+            catContainer.appendChild(div);
+        });
+        updateCartCount();
+    }
+
+    function showSection(id) {
+        document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+        window.scrollTo(0,0);
+    }
+
+    function showRestaurantList(category) {
+        currentCategory = category;
+        showSection('restaurant-list-section');
+        document.getElementById('current-category-name').innerText = category;
+        renderRestaurants();
+    }
+
+    function renderRestaurants() {
+        const container = document.getElementById('restaurants-container');
+        container.innerHTML = "";
+        const list = db.restaurants.filter(r => r.category === currentCategory);
+        if(list.length === 0) container.innerHTML = "<p class='text-center py-10 text-gray-400 text-sm'>아직 등록된 가게가 없어요.<br>상단에서 직접 추가해보세요!</p>";
+        list.forEach(res => {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100";
+            div.onclick = () => showRestaurantDetail(res.id);
+            div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div><h3 class="font-bold">${res.name}</h3><p class="text-xs text-gray-400 mt-1">⭐ 5.0 | 배달팁 0원</p></div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function showRestaurantDetail(id) {
+        currentRestaurantId = id;
+        const res = db.restaurants.find(r => r.id === id);
+        showSection('restaurant-detail-section');
+        document.getElementById('restaurant-info').innerHTML = `<h2 class="text-2xl font-bold text-gray-800">${res.name}</h2><p class="text-sm text-gray-500 mt-2">운영시간: 11:00 ~ 23:00</p>`;
+        renderMenus(res);
+    }
+
+    function renderMenus(res) {
+        const container = document.getElementById('menu-container');
+        container.innerHTML = "";
+        if(!res.menus || res.menus.length === 0) container.innerHTML = "<p class='text-center py-4 text-gray-400'>메뉴를 추가해주세요.</p>";
+        res.menus?.forEach((m) => {
+            const div = document.createElement('div');
+            div.className = "flex justify-between items-center py-3 border-b border-gray-50 last:border-0";
+            div.innerHTML = `<div class="flex gap-3 items-center">${m.img ? `<img src="${m.img}" class="w-14 h-14 object-cover rounded">` : `<div class="w-14 h-14 bg-gray-50 rounded"></div>`}<div><p class="font-bold text-gray-700">${m.name}</p><p class="text-sm text-[#2ac1bc] font-bold">${parseInt(m.price).toLocaleString()}원</p></div></div><button onclick="addToCart('${res.name}', '${m.name}', ${m.price})" class="px-4 py-1.5 border border-[#2ac1bc] text-[#2ac1bc] text-xs font-bold rounded-full">담기</button>`;
+            container.appendChild(div);
+        });
+    }
+
+    function showAddRestaurantModal() {
+        openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="border p-3 rounded-lg text-sm">`, () => {
+            const name = document.getElementById('new-res-name').value;
+            if(!name) return;
+            db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: [] });
+            saveDB(); renderRestaurants(); closeModal();
+        });
+    }
+
+    function showAddMenuModal() {
+        openModal("메뉴 등록", `<input id="new-menu-name" type="text" placeholder="메뉴 이름" class="border p-3 rounded-lg text-sm"><input id="new-menu-price" type="number" placeholder="가격 (숫자만)" class="border p-3 rounded-lg text-sm"><input id="new-menu-img" type="text" placeholder="이미지 URL (선택)" class="border p-3 rounded-lg text-sm">`, () => {
+            const name = document.getElementById('new-menu-name').value;
+            const price = document.getElementById('new-menu-price').value;
+            const img = document.getElementById('new-menu-img').value;
+            if(!name || !price) return;
+            const res = db.restaurants.find(r => r.id === currentRestaurantId);
+            res.menus.push({ name, price, img });
+            saveDB(); renderMenus(res); closeModal();
+        });
+    }
+
+    function addToCart(resName, menuName, price) {
+        db.cart.push({ resName, menuName, price });
+        saveDB(); updateCartCount();
+    }
+
+    function updateCartCount() {
+        document.getElementById('cart-count').innerText = db.cart.length;
+        renderCart();
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cart-items');
+        const totalDiv = document.getElementById('cart-total');
+        container.innerHTML = "";
+        let total = 0;
+        if(db.cart.length === 0) container.innerHTML = "<p class='text-center py-10 text-gray-400'>장바구니가 텅 비었어요.</p>";
+        db.cart.forEach((item) => {
+            total += parseInt(item.price);
+            container.innerHTML += `<div class="flex justify-between py-3 border-b border-gray-50"><div class="text-sm"><p class="text-[10px] text-gray-400">${item.resName}</p><p class="font-bold">${item.menuName}</p></div><p class="font-bold text-sm">${parseInt(item.price).toLocaleString()}원</p></div>`;
+        });
+        totalDiv.innerText = `총 결제금액: ${total.toLocaleString()}원`;
+    }
+
+    function startDeliverySimulation() {
+        if(db.cart.length === 0) return alert("장바구니가 비어있습니다.");
+        showSection('delivery-status-section');
+        const steps = ["주문 확인 중...", "음식 준비 중...", "라이더 배정 중...", "집으로 오고 있어요!", "배달 완료! 😋"];
+        let currentStep = 0;
+        const interval = setInterval(() => {
+            currentStep++;
+            const progress = (currentStep / (steps.length - 1)) * 100;
+            document.getElementById('progress-bar').style.width = progress + "%";
+            document.getElementById('status-text').innerText = steps[currentStep];
+            if(currentStep >= steps.length - 1) {
+                clearInterval(interval);
+                db.cart = []; saveDB(); updateCartCount();
+            }
+        }, 2000);
+    }
+
+    function saveDB() { localStorage.setItem('deliveryDB', JSON.stringify(db)); }
+    function openModal(title, content, onConfirm) {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-content').innerHTML = content;
+        document.getElementById('modal-confirm-btn').onclick = onConfirm;
+        document.getElementById('modal').classList.remove('hidden');
+    }
+    function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+    init();
+</script>
+
+</body>
+</html>
