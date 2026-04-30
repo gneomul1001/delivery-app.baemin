@@ -25,10 +25,22 @@
                 </button>
             </div>
         </div>
+        <div class="relative">
+            <input type="text" id="search-input" onkeyup="if(event.key === 'Enter') executeSearch()" placeholder="가게 이름을 검색해보세요!" class="w-full p-3 rounded-lg text-black focus:outline-none text-sm shadow-inner">
+            <button onclick="executeSearch()" class="absolute right-3 top-3 text-gray-400">🔍</button>
+        </div>
     </div>
 </header>
 
 <main class="max-w-4xl mx-auto p-4 mb-20">
+    <section id="search-result-section" class="hidden">
+        <div class="flex justify-between items-end mb-4 border-b pb-2">
+            <h2 class="text-2xl font-black text-gray-800">검색 결과</h2>
+            <button onclick="showSection('category-section')" class="text-gray-400 text-sm">닫기</button>
+        </div>
+        <div id="search-results-container" class="grid gap-4"></div>
+    </section>
+
     <section id="category-section" class="grid grid-cols-4 gap-4 text-center mb-8"></section>
 
     <section id="restaurant-list-section" class="hidden">
@@ -79,6 +91,15 @@
         <div id="cart-total" class="text-right font-bold text-lg mb-4 text-[#2ac1bc]"></div>
         <button onclick="startDeliverySimulation()" class="w-full py-4 baemin-navy text-white rounded-lg font-bold shadow-lg">주문하기</button>
     </section>
+
+    <section id="delivery-status-section" class="hidden text-center p-10">
+        <div class="text-5xl mb-4 animate-bounce">🛵</div>
+        <h2 id="status-text" class="text-2xl font-bold mb-2 text-gray-800">주문 확인 중...</h2>
+        <div class="w-full bg-gray-200 h-3 rounded-full overflow-hidden mb-8">
+            <div id="progress-bar" class="baemin-navy h-full transition-all duration-1000" style="width: 0%"></div>
+        </div>
+        <button onclick="showSection('category-section')" class="w-full py-3 baemin-navy text-white rounded-lg font-bold">🏠 처음 화면으로</button>
+    </section>
 </main>
 
 <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-[100]">
@@ -109,6 +130,30 @@
             catContainer.appendChild(div);
         });
         updateCartCount();
+    }
+
+    // --- 🔍 검색 로직 추가 ---
+    function executeSearch() {
+        const query = document.getElementById('search-input').value.trim();
+        if(!query) return;
+        
+        showSection('search-result-section');
+        const container = document.getElementById('search-results-container');
+        container.innerHTML = "";
+        
+        const filtered = db.restaurants.filter(r => r.name.includes(query));
+        
+        if(filtered.length === 0) {
+            container.innerHTML = "<div class='text-center py-10 text-gray-400 font-bold'>검색 결과가 없습니다.</div>";
+        } else {
+            filtered.forEach(res => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100";
+                div.onclick = () => showRestaurantDetail(res.id);
+                div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div class="flex-1"><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">${res.category}</p></div>`;
+                container.appendChild(div);
+            });
+        }
     }
 
     function showSection(id) {
@@ -187,7 +232,6 @@
         });
     }
 
-    // --- 옵션 관리 (사장님 모드) ---
     function showOptionManageModal(cat, idx) {
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
@@ -212,7 +256,7 @@
             if(!name) return closeModal();
             menu.options.push({ name, price });
             saveDB();
-            showOptionManageModal(cat, idx); // 모달 유지하며 갱신
+            showOptionManageModal(cat, idx);
         });
     }
 
@@ -223,19 +267,16 @@
         showOptionManageModal(cat, idx);
     }
 
-    // --- 옵션 선택 후 담기 (사용자 모드) ---
     function prepareAddToCart(cat, idx) {
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
         const qty = parseInt(document.getElementById(`qty-${cat}-${idx}`).innerText);
 
-        // 옵션이 없으면 바로 담기
         if(!menu.options || menu.options.length === 0) {
             addToCartWithFinalInfo(res.name, menu.name, menu.price, qty, []);
             return;
         }
 
-        // 옵션 선택 모달
         openModal("옵션 선택", `
             <p class="text-sm font-bold mb-3">${menu.name}를 더 맛있게!</p>
             <div class="flex flex-col gap-2">
@@ -265,7 +306,6 @@
         alert(`${menuName} ${qty}개를 담았습니다.`);
     }
 
-    // --- 기본 관리 기능 ---
     function showAddRestaurantModal() {
         openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
             const name = document.getElementById('new-res-name').value;
@@ -275,13 +315,19 @@
         });
     }
 
+    // --- 📸 이미지 등록 입력창 다시 추가 ---
     function showAddMenuModal(type) {
-        openModal("메뉴 등록", `<input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2"><input id="new-menu-price" type="number" placeholder="가격" class="w-full border p-2 rounded text-sm">`, () => {
+        openModal("메뉴 등록", `
+            <input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2">
+            <input id="new-menu-price" type="number" placeholder="가격" class="w-full border p-2 rounded text-sm mb-2">
+            <input id="new-menu-img" type="text" placeholder="이미지 URL (웹상의 이미지 주소)" class="w-full border p-2 rounded text-sm">
+        `, () => {
             const name = document.getElementById('new-menu-name').value;
             const price = parseInt(document.getElementById('new-menu-price').value) || 0;
+            const img = document.getElementById('new-menu-img').value;
             if(!name) return;
             const res = db.restaurants.find(r => r.id === currentRestaurantId);
-            res.menus[type].push({ name, price, img: '', options: [] });
+            res.menus[type].push({ name, price, img, options: [] });
             saveDB(); renderMenus(res); closeModal();
         });
     }
