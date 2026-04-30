@@ -33,7 +33,7 @@
 
     <section id="restaurant-list-section" class="hidden">
         <div class="flex justify-between items-center mb-4">
-            <h2 id="current-category-name" class="text-xl font-bold"></h2>
+            <h2 id="current-category-name" class="text-xl font-bold text-gray-800"></h2>
             <button onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
         </div>
         <div id="restaurants-container" class="grid gap-4"></div>
@@ -79,21 +79,12 @@
         <div id="cart-total" class="text-right font-bold text-lg mb-4 text-[#2ac1bc]"></div>
         <button onclick="startDeliverySimulation()" class="w-full py-4 baemin-navy text-white rounded-lg font-bold shadow-lg">주문하기</button>
     </section>
-
-    <section id="delivery-status-section" class="hidden text-center p-10">
-        <div class="text-5xl mb-4 animate-bounce">🛵</div>
-        <h2 id="status-text" class="text-2xl font-bold mb-2 text-gray-800">주문 확인 중...</h2>
-        <div class="w-full bg-gray-200 h-3 rounded-full overflow-hidden mb-8">
-            <div id="progress-bar" class="baemin-navy h-full transition-all duration-1000" style="width: 0%"></div>
-        </div>
-        <button onclick="showSection('category-section')" class="w-full py-3 baemin-navy text-white rounded-lg font-bold">🏠 처음 화면으로</button>
-    </section>
 </main>
 
 <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-[100]">
-    <div class="bg-white w-full max-w-md p-6 rounded-xl">
-        <h3 id="modal-title" class="text-lg font-bold mb-4">입력</h3>
-        <div id="modal-content" class="flex flex-col gap-3"></div>
+    <div class="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
+        <h3 id="modal-title" class="text-lg font-bold mb-4 text-gray-800">입력</h3>
+        <div id="modal-content" class="flex flex-col gap-3 max-h-[60vh] overflow-y-auto"></div>
         <div class="flex gap-2 mt-6">
             <button onclick="closeModal()" class="flex-1 py-2 bg-gray-200 rounded font-bold">취소</button>
             <button id="modal-confirm-btn" class="flex-1 py-2 baemin-navy text-white rounded font-bold">확인</button>
@@ -103,7 +94,7 @@
 
 <script>
     const categories = ["분식", "고기", "치킨", "패스트푸드", "피자", "족발", "야식", "국·탕·찌개", "찜", "도시락", "카페·베이커리", "디저트", "한식", "중식", "일식", "동남아시아", "남아시아", "서아시아", "중앙아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "아프리카", "아메리칸", "남미", "북미", "오세아니아"];
-    let db = JSON.parse(localStorage.getItem('deliveryDB_v2')) || { restaurants: [], cart: [] };
+    let db = JSON.parse(localStorage.getItem('deliveryDB_v3')) || { restaurants: [], cart: [] };
     let currentCategory = "";
     let currentRestaurantId = null;
 
@@ -142,7 +133,7 @@
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100";
             div.onclick = () => showRestaurantDetail(res.id);
-            div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div><h3 class="font-bold">${res.name}</h3><p class="text-xs text-gray-400 mt-1">⭐ 5.0 | 배달팁 0원</p></div>`;
+            div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">⭐ 5.0 | 배달팁 0원</p></div>`;
             container.appendChild(div);
         });
     }
@@ -151,11 +142,10 @@
         currentRestaurantId = id;
         const res = db.restaurants.find(r => r.id === id);
         showSection('restaurant-detail-section');
-        document.getElementById('restaurant-info').innerHTML = `<h2 class="text-2xl font-bold text-gray-800">${res.name}</h2><p class="text-sm text-gray-500 mt-2">운영시간: 11:00 ~ 23:00</p>`;
+        document.getElementById('restaurant-info').innerHTML = `<h2 class="text-2xl font-bold text-gray-800">${res.name}</h2><p class="text-sm text-gray-500 mt-2 font-bold">원하시는 메뉴와 옵션을 선택해주세요.</p>`;
         renderMenus(res);
     }
 
-    // 메뉴 수량 조절 로직
     function updateItemQty(cat, idx, change) {
         const span = document.getElementById(`qty-${cat}-${idx}`);
         let current = parseInt(span.innerText);
@@ -172,41 +162,110 @@
             
             menus.forEach((m, idx) => {
                 const div = document.createElement('div');
-                div.className = "flex flex-col gap-3 py-4 border-b border-gray-50 last:border-0";
+                div.className = "p-4 border rounded-xl bg-gray-50/30 mb-2";
                 div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div class="flex gap-3 items-center">
-                            ${m.img ? `<img src="${m.img}" class="w-14 h-14 object-cover rounded">` : `<div class="w-14 h-14 bg-gray-50 rounded"></div>`}
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex gap-3">
+                            ${m.img ? `<img src="${m.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` : `<div class="w-16 h-16 bg-gray-200 rounded-lg"></div>`}
                             <div>
                                 <p class="font-bold text-gray-700">${m.name}</p>
                                 <p class="text-sm text-[#2ac1bc] font-bold">${parseInt(m.price).toLocaleString()}원</p>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-2">
-                            <div class="flex items-center gap-3 border rounded-full px-2 py-1 bg-white shadow-sm">
-                                <button onclick="updateItemQty('${cat}', ${idx}, -1)" class="w-6 h-6 flex items-center justify-center font-bold text-gray-400">-</button>
-                                <span id="qty-${cat}-${idx}" class="text-sm font-bold min-w-[20px] text-center">1</span>
-                                <button onclick="updateItemQty('${cat}', ${idx}, 1)" class="w-6 h-6 flex items-center justify-center font-bold text-[#2ac1bc]">+</button>
-                            </div>
-                            <button onclick="handleAddToCart('${res.name}', '${m.name}', ${m.price}, '${cat}', ${idx})" class="px-4 py-1.5 baemin-navy text-white text-xs font-bold rounded-full">담기</button>
+                        <button onclick="showOptionManageModal('${cat}', ${idx})" class="text-[10px] px-2 py-1 border border-gray-300 rounded-md bg-white text-gray-500 font-bold hover:bg-gray-50">옵션 관리</button>
+                    </div>
+                    <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
+                        <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
+                            <button onclick="updateItemQty('${cat}', ${idx}, -1)" class="font-bold text-gray-300">-</button>
+                            <span id="qty-${cat}-${idx}" class="text-xs font-bold w-4 text-center">1</span>
+                            <button onclick="updateItemQty('${cat}', ${idx}, 1)" class="font-bold text-[#2ac1bc]">+</button>
                         </div>
+                        <button onclick="prepareAddToCart('${cat}', ${idx})" class="px-5 py-2 baemin-navy text-white text-xs font-bold rounded-full shadow-md">장바구니 담기</button>
                     </div>`;
                 container.appendChild(div);
             });
         });
     }
 
-    function handleAddToCart(resName, menuName, price, cat, idx) {
-        const qty = parseInt(document.getElementById(`qty-${cat}-${idx}`).innerText);
-        for(let i=0; i < qty; i++) {
-            db.cart.push({ resName, menuName, price });
-        }
-        saveDB(); updateCartCount();
-        alert(`${menuName} ${qty}개를 장바구니에 담았습니다!`);
-        // 담은 후 수량 1로 초기화
-        document.getElementById(`qty-${cat}-${idx}`).innerText = "1";
+    // --- 옵션 관리 (사장님 모드) ---
+    function showOptionManageModal(cat, idx) {
+        const res = db.restaurants.find(r => r.id === currentRestaurantId);
+        const menu = res.menus[cat][idx];
+        if(!menu.options) menu.options = [];
+
+        let listHtml = menu.options.map((opt, oIdx) => `
+            <div class="flex justify-between items-center bg-gray-100 p-2 rounded text-sm">
+                <span>${opt.name} (+${opt.price.toLocaleString()}원)</span>
+                <button onclick="removeOption('${cat}', ${idx}, ${oIdx})" class="text-red-500 font-bold">×</button>
+            </div>
+        `).join('');
+
+        openModal(`[${menu.name}] 옵션 등록/삭제`, `
+            <div class="flex flex-col gap-2 mb-4">${listHtml || '<p class="text-center text-gray-400 text-xs py-2">등록된 옵션이 없습니다.</p>'}</div>
+            <div class="border-t pt-4">
+                <input id="opt-name" type="text" placeholder="옵션명 (예: 치즈추가)" class="w-full border p-2 rounded text-sm mb-2">
+                <input id="opt-price" type="number" placeholder="추가금액 (숫자)" class="w-full border p-2 rounded text-sm">
+            </div>
+        `, () => {
+            const name = document.getElementById('opt-name').value;
+            const price = parseInt(document.getElementById('opt-price').value) || 0;
+            if(!name) return closeModal();
+            menu.options.push({ name, price });
+            saveDB();
+            showOptionManageModal(cat, idx); // 모달 유지하며 갱신
+        });
     }
 
+    function removeOption(cat, idx, oIdx) {
+        const res = db.restaurants.find(r => r.id === currentRestaurantId);
+        res.menus[cat][idx].options.splice(oIdx, 1);
+        saveDB();
+        showOptionManageModal(cat, idx);
+    }
+
+    // --- 옵션 선택 후 담기 (사용자 모드) ---
+    function prepareAddToCart(cat, idx) {
+        const res = db.restaurants.find(r => r.id === currentRestaurantId);
+        const menu = res.menus[cat][idx];
+        const qty = parseInt(document.getElementById(`qty-${cat}-${idx}`).innerText);
+
+        // 옵션이 없으면 바로 담기
+        if(!menu.options || menu.options.length === 0) {
+            addToCartWithFinalInfo(res.name, menu.name, menu.price, qty, []);
+            return;
+        }
+
+        // 옵션 선택 모달
+        openModal("옵션 선택", `
+            <p class="text-sm font-bold mb-3">${menu.name}를 더 맛있게!</p>
+            <div class="flex flex-col gap-2">
+                ${menu.options.map((opt, i) => `
+                    <label class="flex justify-between items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <span class="text-sm">${opt.name} (+${opt.price.toLocaleString()}원)</span>
+                        <input type="checkbox" name="menu-opt" value="${i}" class="w-4 h-4 accent-[#2ac1bc]">
+                    </label>
+                `).join('')}
+            </div>
+        `, () => {
+            const selectedIdxs = Array.from(document.querySelectorAll('input[name="menu-opt"]:checked')).map(el => parseInt(el.value));
+            const selectedOpts = selectedIdxs.map(i => menu.options[i]);
+            addToCartWithFinalInfo(res.name, menu.name, menu.price, qty, selectedOpts);
+        });
+    }
+
+    function addToCartWithFinalInfo(resName, menuName, basePrice, qty, selectedOpts) {
+        const optPrice = selectedOpts.reduce((sum, o) => sum + o.price, 0);
+        const optText = selectedOpts.map(o => o.name).join(', ') || '없음';
+        const finalPrice = basePrice + optPrice;
+
+        for(let i=0; i<qty; i++) {
+            db.cart.push({ resName, menuName, price: finalPrice, optionsText: optText });
+        }
+        saveDB(); updateCartCount(); closeModal();
+        alert(`${menuName} ${qty}개를 담았습니다.`);
+    }
+
+    // --- 기본 관리 기능 ---
     function showAddRestaurantModal() {
         openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
             const name = document.getElementById('new-res-name').value;
@@ -217,18 +276,12 @@
     }
 
     function showAddMenuModal(type) {
-        const typeNames = { normal: '일반메뉴', set: '세트메뉴', side: '사이드메뉴' };
-        openModal(`${typeNames[type]} 등록`, `
-            <input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-3 rounded-lg text-sm mb-2">
-            <input id="new-menu-price" type="number" placeholder="가격 (숫자만)" class="w-full border p-3 rounded-lg text-sm mb-2">
-            <input id="new-menu-img" type="text" placeholder="이미지 URL (선택)" class="w-full border p-3 rounded-lg text-sm">
-        `, () => {
+        openModal("메뉴 등록", `<input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2"><input id="new-menu-price" type="number" placeholder="가격" class="w-full border p-2 rounded text-sm">`, () => {
             const name = document.getElementById('new-menu-name').value;
-            const price = document.getElementById('new-menu-price').value;
-            const img = document.getElementById('new-menu-img').value;
-            if(!name || !price) return;
+            const price = parseInt(document.getElementById('new-menu-price').value) || 0;
+            if(!name) return;
             const res = db.restaurants.find(r => r.id === currentRestaurantId);
-            res.menus[type].push({ name, price, img });
+            res.menus[type].push({ name, price, img: '', options: [] });
             saveDB(); renderMenus(res); closeModal();
         });
     }
@@ -242,32 +295,21 @@
         const totalDiv = document.getElementById('cart-total');
         container.innerHTML = "";
         let total = 0;
-        
-        // 장바구니 품목 그룹화 (가독성 향상)
-        const grouped = db.cart.reduce((acc, item) => {
-            const key = item.resName + item.menuName;
-            if(!acc[key]) acc[key] = { ...item, count: 0 };
-            acc[key].count++;
-            return acc;
-        }, {});
-
-        if(Object.keys(grouped).length === 0) {
-            container.innerHTML = "<p class='text-center py-10 text-gray-400'>장바구니가 비어있습니다.</p>";
-        } else {
-            Object.values(grouped).forEach((item) => {
-                const subtotal = item.price * item.count;
-                total += subtotal;
-                container.innerHTML += `
-                    <div class="flex justify-between items-center py-4 border-b border-gray-50 last:border-0">
+        if(db.cart.length === 0) container.innerHTML = "<p class='text-center py-10 text-gray-400'>장바구니가 비어있습니다.</p>";
+        db.cart.forEach((item) => {
+            total += item.price;
+            container.innerHTML += `
+                <div class="py-3 border-b border-gray-50 last:border-0">
+                    <div class="flex justify-between items-start">
                         <div>
                             <p class="text-[10px] text-gray-400 font-bold">${item.resName}</p>
                             <p class="font-bold text-gray-800">${item.menuName}</p>
-                            <p class="text-xs text-[#2ac1bc] font-bold mt-1">수량: ${item.count}개</p>
+                            <p class="text-[10px] text-blue-400 font-bold">옵션: ${item.optionsText}</p>
                         </div>
-                        <p class="font-bold text-gray-800">${subtotal.toLocaleString()}원</p>
-                    </div>`;
-            });
-        }
+                        <p class="font-bold text-sm text-gray-700">${item.price.toLocaleString()}원</p>
+                    </div>
+                </div>`;
+        });
         totalDiv.innerText = `총 결제금액: ${total.toLocaleString()}원`;
     }
 
@@ -288,15 +330,13 @@
         }, 2000);
     }
 
-    function saveDB() { localStorage.setItem('deliveryDB_v2', JSON.stringify(db)); }
-    
+    function saveDB() { localStorage.setItem('deliveryDB_v3', JSON.stringify(db)); }
     function openModal(title, content, onConfirm) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-content').innerHTML = content;
         document.getElementById('modal-confirm-btn').onclick = onConfirm;
         document.getElementById('modal').classList.remove('hidden');
     }
-    
     function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 
     init();
