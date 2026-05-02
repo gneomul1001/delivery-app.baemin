@@ -10,6 +10,8 @@
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f6f6f6; }
         .baemin-navy { background-color: #2ac1bc; } 
         .hidden { display: none; }
+        /* 드래그 앤 드롭 강조 스타일 */
+        .drag-over { background-color: #e0f2f1 !important; border: 2px dashed #2ac1bc !important; }
     </style>
 </head>
 <body>
@@ -132,6 +134,29 @@
         updateCartCount();
     }
 
+    // --- 이미지 드래그 앤 드롭 및 AI 호환 로직 ---
+    function handleImageDrop(e, inputId) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                document.getElementById(inputId).value = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function onDragOver(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    }
+
+    function onDragLeave(e) {
+        e.currentTarget.classList.remove('drag-over');
+    }
+
     function executeSearch() {
         const query = document.getElementById('search-input').value.trim();
         if(!query) return;
@@ -177,7 +202,6 @@
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100";
             div.onclick = () => showRestaurantDetail(res.id);
-            // 배달팁 0원 -> 4000원 수정
             div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">⭐ 5.0 | 배달팁 4,000원</p></div>`;
             container.appendChild(div);
         });
@@ -238,15 +262,17 @@
         });
     }
 
-    // --- 메뉴 수정 기능 추가 ---
     function showEditMenuModal(cat, idx) {
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
         
         openModal("메뉴 수정", `
+            <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 입력창으로 끌어다 놓으세요 (AI 이미지 호환)</p>
             <input id="edit-menu-name" type="text" value="${menu.name}" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2">
             <input id="edit-menu-price" type="number" value="${menu.price}" placeholder="가격" class="w-full border p-2 rounded text-sm mb-2">
-            <input id="edit-menu-img" type="text" value="${menu.img || ''}" placeholder="이미지 URL" class="w-full border p-2 rounded text-sm">
+            <input id="edit-menu-img" type="text" value="${menu.img || ''}" placeholder="이미지 URL 또는 파일을 드래그하세요" 
+                class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
+                ondrop="handleImageDrop(event, 'edit-menu-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
         `, () => {
             const newName = document.getElementById('edit-menu-name').value;
             const newPrice = parseInt(document.getElementById('edit-menu-price').value) || 0;
@@ -263,7 +289,6 @@
         });
     }
 
-    // --- 메뉴 삭제 기능 추가 ---
     function deleteMenu(cat, idx) {
         if(confirm("이 메뉴를 삭제하시겠습니까?")) {
             const res = db.restaurants.find(r => r.id === currentRestaurantId);
@@ -358,9 +383,12 @@
 
     function showAddMenuModal(type) {
         openModal("메뉴 등록", `
+            <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 입력창으로 끌어다 놓으세요 (AI 이미지 호환)</p>
             <input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2">
             <input id="new-menu-price" type="number" placeholder="가격" class="w-full border p-2 rounded text-sm mb-2">
-            <input id="new-menu-img" type="text" placeholder="이미지 URL" class="w-full border p-2 rounded text-sm">
+            <input id="new-menu-img" type="text" placeholder="이미지 URL 또는 파일을 드래그하세요" 
+                class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
+                ondrop="handleImageDrop(event, 'new-menu-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
         `, () => {
             const name = document.getElementById('new-menu-name').value;
             const price = parseInt(document.getElementById('new-menu-price').value) || 0;
