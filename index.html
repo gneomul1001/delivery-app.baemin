@@ -134,7 +134,6 @@
         updateCartCount();
     }
 
-    // --- 이미지 드래그 앤 드롭 및 AI 호환 로직 ---
     function handleImageDrop(e, inputId) {
         e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
@@ -232,13 +231,18 @@
             menus.forEach((m, idx) => {
                 const div = document.createElement('div');
                 div.className = "p-4 border rounded-xl bg-gray-50/30 mb-2";
+                
+                // 구성(composition) 정보가 있으면 추가 표시
+                const compositionHtml = m.composition ? `<p class="text-[10px] text-gray-400 mt-0.5">구성: ${m.composition}</p>` : '';
+
                 div.innerHTML = `
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex gap-3">
                             ${m.img ? `<img src="${m.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` : `<div class="w-16 h-16 bg-gray-200 rounded-lg"></div>`}
                             <div>
                                 <p class="font-bold text-gray-700">${m.name}</p>
-                                <p class="text-sm text-[#2ac1bc] font-bold">${parseInt(m.price).toLocaleString()}원</p>
+                                ${compositionHtml}
+                                <p class="text-sm text-[#2ac1bc] font-bold mt-1">${parseInt(m.price).toLocaleString()}원</p>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1">
@@ -266,9 +270,15 @@
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
         
+        // 세트메뉴일 경우 구성 수정 필드 추가
+        const compositionInput = cat === 'set' 
+            ? `<input id="edit-menu-composition" type="text" value="${menu.composition || ''}" placeholder="메뉴 구성 (예: 싸이버거+콜라+감튀)" class="w-full border p-2 rounded text-sm mb-2 bg-blue-50">` 
+            : '';
+
         openModal("메뉴 수정", `
             <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 입력창으로 끌어다 놓으세요 (AI 이미지 호환)</p>
             <input id="edit-menu-name" type="text" value="${menu.name}" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2">
+            ${compositionInput}
             <input id="edit-menu-price" type="number" value="${menu.price}" placeholder="가격" class="w-full border p-2 rounded text-sm mb-2">
             <input id="edit-menu-img" type="text" value="${menu.img || ''}" placeholder="이미지 URL 또는 파일을 드래그하세요" 
                 class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -277,11 +287,13 @@
             const newName = document.getElementById('edit-menu-name').value;
             const newPrice = parseInt(document.getElementById('edit-menu-price').value) || 0;
             const newImg = document.getElementById('edit-menu-img').value;
+            const newComposition = cat === 'set' ? document.getElementById('edit-menu-composition').value : '';
             
             if(!newName) return;
             menu.name = newName;
             menu.price = newPrice;
             menu.img = newImg;
+            if(cat === 'set') menu.composition = newComposition;
             
             saveDB();
             renderMenus(res);
@@ -382,9 +394,15 @@
     }
 
     function showAddMenuModal(type) {
+        // 세트메뉴일 경우 구성 입력 필드 추가
+        const compositionInput = type === 'set' 
+            ? `<input id="new-menu-composition" type="text" placeholder="메뉴 구성 (예: 싸이버거+콜라+감튀)" class="w-full border p-2 rounded text-sm mb-2 bg-blue-50">` 
+            : '';
+
         openModal("메뉴 등록", `
             <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 입력창으로 끌어다 놓으세요 (AI 이미지 호환)</p>
             <input id="new-menu-name" type="text" placeholder="메뉴 이름" class="w-full border p-2 rounded text-sm mb-2">
+            ${compositionInput}
             <input id="new-menu-price" type="number" placeholder="가격" class="w-full border p-2 rounded text-sm mb-2">
             <input id="new-menu-img" type="text" placeholder="이미지 URL 또는 파일을 드래그하세요" 
                 class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
@@ -393,9 +411,10 @@
             const name = document.getElementById('new-menu-name').value;
             const price = parseInt(document.getElementById('new-menu-price').value) || 0;
             const img = document.getElementById('new-menu-img').value;
+            const composition = type === 'set' ? document.getElementById('new-menu-composition').value : '';
             if(!name) return;
             const res = db.restaurants.find(r => r.id === currentRestaurantId);
-            res.menus[type].push({ name, price, img, options: [] });
+            res.menus[type].push({ name, price, img, composition, options: [] });
             saveDB(); renderMenus(res); closeModal();
         });
     }
