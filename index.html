@@ -48,7 +48,8 @@
     <section id="restaurant-list-section" class="hidden">
         <div class="flex justify-between items-center mb-4">
             <h2 id="current-category-name" class="text-xl font-bold text-gray-800"></h2>
-            <button onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
+            <!-- 버튼 ID를 부여하여 동적으로 텍스트가 변경되도록 설정 -->
+            <button id="add-item-btn" onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
         </div>
         <div id="restaurants-container" class="grid gap-4"></div>
         <button onclick="showSection('category-section')" class="mt-6 w-full py-3 border border-gray-300 rounded text-gray-500 bg-white font-bold">🏠 홈으로 돌아가기</button>
@@ -116,7 +117,6 @@
 </div>
 
 <script>
-    // '가민G마트' 카테고리를 맨 앞에 추가했습니다.
     const categories = ["가민G마트", "분식", "고기", "치킨", "패스트푸드", "피자", "족발", "야식", "국·탕·찌개", "찜", "도시락", "카페·베이커리", "디저트", "고급요리", "한식", "중식", "일식", "동남아시아", "남아시아", "서아시아", "중앙아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "동아프리카", "서아프리카", "남아프리카", "북아프리카", "미국", "북미", "남미", "카리브해", "오세아니아", "호주", "뉴질랜드"];
     let db = JSON.parse(localStorage.getItem('deliveryDB_v3')) || { restaurants: [], cart: [] };
     let currentCategory = "";
@@ -129,7 +129,6 @@
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:scale-105 transition-transform border border-transparent hover:border-[#2ac1bc]";
             
-            // 가민G마트 전용 아이콘 설정 (원하는 이모지로 변경 가능합니다)
             const icon = cat === "가민G마트" ? "🛒" : "🍴";
             
             div.innerHTML = `<div class="text-2xl mb-1">${icon}</div><div class="text-xs font-bold text-gray-700">${cat}</div>`;
@@ -201,6 +200,15 @@
     function renderRestaurants() {
         const container = document.getElementById('restaurants-container');
         container.innerHTML = "";
+        
+        // 가민G마트 일 때는 버튼 텍스트를 '+ 상품 추가'로 변경, 그 외에는 '+ 음식점 추가'
+        const addBtn = document.getElementById('add-item-btn');
+        if (currentCategory === "가민G마트") {
+            addBtn.innerText = "+ 상품 추가";
+        } else {
+            addBtn.innerText = "+ 음식점 추가";
+        }
+
         const list = db.restaurants.filter(r => r.category === currentCategory);
         list.forEach(res => {
             const div = document.createElement('div');
@@ -237,7 +245,6 @@
                 const div = document.createElement('div');
                 div.className = "p-4 border rounded-xl bg-gray-50/30 mb-2";
                 
-                // 구성(composition) 정보가 있으면 추가 표시
                 const compositionHtml = m.composition ? `<p class="text-[10px] text-gray-400 mt-0.5">구성: ${m.composition}</p>` : '';
 
                 div.innerHTML = `
@@ -275,7 +282,6 @@
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
         
-        // 세트메뉴일 경우 구성 수정 필드 추가
         const compositionInput = cat === 'set' 
             ? `<input id="edit-menu-composition" type="text" value="${menu.composition || ''}" placeholder="메뉴 구성 (예: 싸이버거+콜라+감튀)" class="w-full border p-2 rounded text-sm mb-2 bg-blue-50">` 
             : '';
@@ -390,7 +396,12 @@
     }
 
     function showAddRestaurantModal() {
-        openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
+        // 모달 타이틀과 플레이스홀더도 카테고리에 맞춰 동적 변경
+        const isMart = currentCategory === "가민G마트";
+        const modalTitle = isMart ? "상품 등록" : "가게 등록";
+        const placeholderText = isMart ? "상품 이름을 입력하세요" : "식당 이름을 입력하세요";
+
+        openModal(modalTitle, `<input id="new-res-name" type="text" placeholder="${placeholderText}" class="w-full border p-3 rounded-lg text-sm">`, () => {
             const name = document.getElementById('new-res-name').value;
             if(!name) return;
             db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: { normal: [], set: [], side: [] } });
@@ -399,7 +410,6 @@
     }
 
     function showAddMenuModal(type) {
-        // 세트메뉴일 경우 구성 입력 필드 추가
         const compositionInput = type === 'set' 
             ? `<input id="new-menu-composition" type="text" placeholder="메뉴 구성 (예: 싸이버거+콜라+감튀)" class="w-full border p-2 rounded text-sm mb-2 bg-blue-50">` 
             : '';
