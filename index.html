@@ -48,7 +48,6 @@
     <section id="restaurant-list-section" class="hidden">
         <div class="flex justify-between items-center mb-4">
             <h2 id="current-category-name" class="text-xl font-bold text-gray-800"></h2>
-            <!-- 버튼 ID를 부여하여 동적으로 텍스트가 변경되도록 설정 -->
             <button id="add-item-btn" onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
         </div>
         <div id="restaurants-container" class="grid gap-4"></div>
@@ -58,6 +57,15 @@
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
         
+        <!-- 가민G마트 전용 단일 상품 컨테이너 -->
+        <div id="mart-product-container" class="bg-white p-4 shadow-sm hidden mb-4">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="font-bold text-lg">📦 등록 상품 목록</h3>
+            </div>
+            <div id="mart-items-list" class="grid gap-4"></div>
+        </div>
+
+        <!-- 기존 음식점용 3단 메뉴 서브 카테고리 -->
         <div id="menu-sub-categories" class="flex flex-col gap-4">
             <div class="bg-white p-4 shadow-sm">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -128,9 +136,7 @@
         categories.forEach(cat => {
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:scale-105 transition-transform border border-transparent hover:border-[#2ac1bc]";
-            
             const icon = cat === "가민G마트" ? "🛒" : "🍴";
-            
             div.innerHTML = `<div class="text-2xl mb-1">${icon}</div><div class="text-xs font-bold text-gray-700">${cat}</div>`;
             div.onclick = () => showRestaurantList(cat);
             catContainer.appendChild(div);
@@ -201,7 +207,6 @@
         const container = document.getElementById('restaurants-container');
         container.innerHTML = "";
         
-        // 가민G마트 일 때는 버튼 텍스트를 '+ 상품 추가'로 변경, 그 외에는 '+ 음식점 추가'
         const addBtn = document.getElementById('add-item-btn');
         if (currentCategory === "가민G마트") {
             addBtn.innerText = "+ 상품 추가";
@@ -212,19 +217,147 @@
         const list = db.restaurants.filter(r => r.category === currentCategory);
         list.forEach(res => {
             const div = document.createElement('div');
-            div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100";
-            div.onclick = () => showRestaurantDetail(res.id);
-            div.innerHTML = `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">🏠</div><div><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">⭐ 5.0 | 배달팁 4,000원</p></div>`;
+            div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100 items-center justify-between";
+            
+            // 상품/식당 정보 영역
+            const infoDiv = document.createElement('div');
+            infoDiv.className = "flex gap-4 flex-1";
+            infoDiv.onclick = () => showRestaurantDetail(res.id);
+            
+            // 등록된 이미지 바인딩 (G마트 상품 직관성 확보)
+            const imgHtml = (res.img) 
+                ? `<img src="${res.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` 
+                : `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">${currentCategory === '가민G마트' ? '📦' : '🏠'}</div>`;
+                
+            const subText = currentCategory === "가민G마트" ? `가격: ${(res.price || 0).toLocaleString()}원` : "⭐ 5.0 | 배달팁 4,000원";
+            
+            infoDiv.innerHTML = `${imgHtml}<div><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">${subText}</p></div>`;
+            div.appendChild(infoDiv);
+
+            // 가민G마트일 때 리스트 내에서 직계 수정/삭제가 가능하도록 관리 버튼 배치
+            if(currentCategory === "가민G마트") {
+                const btnGroup = document.createElement('div');
+                btnGroup.className = "flex gap-1 pl-2";
+                btnGroup.innerHTML = `
+                    <button onclick="showEditMartItemModal(${res.id})" class="text-[11px] px-2 py-1.5 border border-blue-200 rounded-md bg-white text-blue-500 font-bold hover:bg-blue-50">수정</button>
+                    <button onclick="deleteMartItem(${res.id})" class="text-[11px] px-2 py-1.5 border border-red-200 rounded-md bg-white text-red-500 font-bold hover:bg-red-50">삭제</button>
+                `;
+                div.appendChild(btnGroup);
+            }
+
             container.appendChild(div);
         });
+    }
+
+    // 마트 메인 상품 수정 모달 (파일 드래그 앤 드롭 완벽 지원)
+    function showEditMartItemModal(id) {
+        const item = db.restaurants.find(r => r.id === id);
+        openModal("상품 수정", `
+            <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 아래 입력창으로 끌어다 놓으세요</p>
+            <input id="edit-mart-name" type="text" value="${item.name}" placeholder="상품 명칭" class="w-full border p-2 rounded text-sm mb-2">
+            <input id="edit-mart-price" type="number" value="${item.price || 0}" placeholder="판매 가격" class="w-full border p-2 rounded text-sm mb-2">
+            <input id="edit-mart-img" type="text" value="${item.img || ''}" placeholder="이미지 URL 주소 또는 파일 드래그" 
+                class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
+                ondrop="handleImageDrop(event, 'edit-mart-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
+        `, () => {
+            const newName = document.getElementById('edit-mart-name').value;
+            const newPrice = parseInt(document.getElementById('edit-mart-price').value) || 0;
+            const newImg = document.getElementById('edit-mart-img').value;
+
+            if(!newName) return;
+            item.name = newName;
+            item.price = newPrice;
+            item.img = newImg;
+
+            saveDB();
+            renderRestaurants();
+            closeModal();
+        });
+    }
+
+    // 마트 메인 상품 삭제 기능
+    function deleteMartItem(id) {
+        if(confirm("이 상품을 삭제하시겠습니까?")) {
+            db.restaurants = db.restaurants.filter(r => r.id !== id);
+            saveDB();
+            renderRestaurants();
+        }
     }
 
     function showRestaurantDetail(id) {
         currentRestaurantId = id;
         const res = db.restaurants.find(r => r.id === id);
         showSection('restaurant-detail-section');
-        document.getElementById('restaurant-info').innerHTML = `<h2 class="text-2xl font-bold text-gray-800">${res.name}</h2><p class="text-sm text-gray-500 mt-2 font-bold">원하시는 메뉴와 옵션을 선택해주세요.</p>`;
-        renderMenus(res);
+        
+        const infoArea = document.getElementById('restaurant-info');
+        const martContainer = document.getElementById('mart-product-container');
+        const foodContainer = document.getElementById('menu-sub-categories');
+
+        if(currentCategory === "가민G마트") {
+            // 마트 모드: 서브카테고리 숨김, 간소화된 상세 노출
+            martContainer.classList.remove('hidden');
+            foodContainer.classList.add('hidden');
+            
+            infoArea.innerHTML = `
+                <div class="flex gap-4 items-center">
+                    ${res.img ? `<img src="${res.img}" class="w-20 h-20 object-cover rounded-xl shadow-md">` : ''}
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">${res.name}</h2>
+                        <p class="text-lg text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
+                    </div>
+                </div>
+            `;
+            renderMartSingleList(res);
+        } else {
+            // 일반 음식점 모드: 3단 분류 원상복구
+            martContainer.classList.add('hidden');
+            foodContainer.classList.remove('hidden');
+            
+            infoArea.innerHTML = `<h2 class="text-2xl font-bold text-gray-800">${res.name}</h2><p class="text-sm text-gray-500 mt-2 font-bold">원하시는 메뉴와 옵션을 선택해주세요.</p>`;
+            renderMenus(res);
+        }
+    }
+
+    // 가민G마트 전용 간소화된 단일 구매 목록 레이아웃 render
+    function renderMartSingleList(res) {
+        const container = document.getElementById('mart-items-list');
+        container.innerHTML = "";
+
+        const div = document.createElement('div');
+        div.className = "p-4 border rounded-xl bg-gray-50/50 flex justify-between items-center";
+        div.innerHTML = `
+            <div>
+                <p class="font-bold text-gray-800 text-base">${res.name}</p>
+                <p class="text-sm text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
+                    <button onclick="updateMartQty(-1)" class="font-bold text-gray-300">-</button>
+                    <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
+                    <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc]">+</button>
+                </div>
+                <button onclick="addMartItemToCart()" class="px-5 py-2 baemin-navy text-white text-xs font-bold rounded-full shadow-md">장바구니 담기</button>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+
+    function updateMartQty(change) {
+        const span = document.getElementById('mart-qty-counter');
+        let current = parseInt(span.innerText);
+        current = Math.max(1, current + change);
+        span.innerText = current;
+    }
+
+    function addMartItemToCart() {
+        const res = db.restaurants.find(r => r.id === currentRestaurantId);
+        const qty = parseInt(document.getElementById('mart-qty-counter').innerText);
+        
+        for(let i=0; i<qty; i++) {
+            db.cart.push({ resName: "가민G마트", menuName: res.name, price: res.price || 0, optionsText: '없음' });
+        }
+        saveDB(); updateCartCount();
+        alert(`${res.name} ${qty}개를 장바구니에 담았습니다.`);
     }
 
     function updateItemQty(cat, idx, change) {
@@ -244,7 +377,6 @@
             menus.forEach((m, idx) => {
                 const div = document.createElement('div');
                 div.className = "p-4 border rounded-xl bg-gray-50/30 mb-2";
-                
                 const compositionHtml = m.composition ? `<p class="text-[10px] text-gray-400 mt-0.5">구성: ${m.composition}</p>` : '';
 
                 div.innerHTML = `
@@ -281,7 +413,6 @@
     function showEditMenuModal(cat, idx) {
         const res = db.restaurants.find(r => r.id === currentRestaurantId);
         const menu = res.menus[cat][idx];
-        
         const compositionInput = cat === 'set' 
             ? `<input id="edit-menu-composition" type="text" value="${menu.composition || ''}" placeholder="메뉴 구성 (예: 싸이버거+콜라+감튀)" class="w-full border p-2 rounded text-sm mb-2 bg-blue-50">` 
             : '';
@@ -396,17 +527,42 @@
     }
 
     function showAddRestaurantModal() {
-        // 모달 타이틀과 플레이스홀더도 카테고리에 맞춰 동적 변경
         const isMart = currentCategory === "가민G마트";
-        const modalTitle = isMart ? "상품 등록" : "가게 등록";
-        const placeholderText = isMart ? "상품 이름을 입력하세요" : "식당 이름을 입력하세요";
-
-        openModal(modalTitle, `<input id="new-res-name" type="text" placeholder="${placeholderText}" class="w-full border p-3 rounded-lg text-sm">`, () => {
-            const name = document.getElementById('new-res-name').value;
-            if(!name) return;
-            db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: { normal: [], set: [], side: [] } });
-            saveDB(); renderRestaurants(); closeModal();
-        });
+        
+        if (isMart) {
+            // 가민G마트 맞춤형 상품 인풋 구조 (드래그앤드롭 인풋 포함)
+            openModal("상품 등록", `
+                <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 아래 입력창으로 끌어다 놓으세요</p>
+                <input id="new-res-name" type="text" placeholder="상품 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm mb-2">
+                <input id="new-res-price" type="number" placeholder="가격을 입력하세요" class="w-full border p-3 rounded-lg text-sm mb-2">
+                <input id="new-res-img" type="text" placeholder="이미지 URL 주소 또는 파일 드래그" 
+                    class="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors"
+                    ondrop="handleImageDrop(event, 'new-res-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
+            `, () => {
+                const name = document.getElementById('new-res-name').value;
+                const price = parseInt(document.getElementById('new-res-price').value) || 0;
+                const img = document.getElementById('new-res-img').value;
+                if(!name) return;
+                
+                db.restaurants.push({ 
+                    id: Date.now(), 
+                    category: currentCategory, 
+                    name: name, 
+                    price: price,
+                    img: img,
+                    menus: { normal: [], set: [], side: [] } 
+                });
+                saveDB(); renderRestaurants(); closeModal();
+            });
+        } else {
+            // 기존 음식점 등록 폼 유지
+            openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
+                const name = document.getElementById('new-res-name').value;
+                if(!name) return;
+                db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: { normal: [], set: [], side: [] } });
+                saveDB(); renderRestaurants(); closeModal();
+            });
+        }
     }
 
     function showAddMenuModal(type) {
