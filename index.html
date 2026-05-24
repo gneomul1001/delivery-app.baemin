@@ -57,12 +57,13 @@
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
         
-        <!-- 가민G마트 전용 단일 상품 컨테이너 -->
-        <div id="mart-product-container" class="bg-white p-4 shadow-sm hidden mb-4">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <h3 class="font-bold text-lg">📦 등록 상품 목록</h3>
+        <!-- 가민G마트 전용 카테고리별 상품 컨테이너 -->
+        <div id="mart-product-container" class="flex flex-col gap-4 hidden">
+            <div class="bg-white p-4 shadow-sm flex justify-between items-center">
+                <span class="text-xs text-gray-400 font-bold">* 가민G마트 분류 체계를 관리할 수 있습니다.</span>
+                <button onclick="showManageMartCategoriesModal()" class="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm hover:bg-amber-600">📁 마트 카테고리 관리</button>
             </div>
-            <div id="mart-items-list" class="grid gap-4"></div>
+            <div id="mart-categories-and-items" class="flex flex-col gap-4"></div>
         </div>
 
         <!-- 기존 음식점용 3단 메뉴 서브 카테고리 -->
@@ -219,22 +220,21 @@
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100 items-center justify-between";
             
-            // 상품/식당 정보 영역
             const infoDiv = document.createElement('div');
             infoDiv.className = "flex gap-4 flex-1";
             infoDiv.onclick = () => showRestaurantDetail(res.id);
             
-            // 등록된 이미지 바인딩 (G마트 상품 직관성 확보)
             const imgHtml = (res.img) 
                 ? `<img src="${res.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` 
                 : `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">${currentCategory === '가민G마트' ? '📦' : '🏠'}</div>`;
                 
+            // 내부 카테고리 텍스트 라벨 추출 추가
+            const martCatLabel = (currentCategory === "가민G마트" && res.martCategory) ? ` [${res.martCategory}]` : '';
             const subText = currentCategory === "가민G마트" ? `가격: ${(res.price || 0).toLocaleString()}원` : "⭐ 5.0 | 배달팁 4,000원";
             
-            infoDiv.innerHTML = `${imgHtml}<div><h3 class="font-bold text-gray-800">${res.name}</h3><p class="text-xs text-gray-400 mt-1">${subText}</p></div>`;
+            infoDiv.innerHTML = `${imgHtml}<div><h3 class="font-bold text-gray-800">${res.name}<span class="text-xs text-blue-500 font-normal">${martCatLabel}</span></h3><p class="text-xs text-gray-400 mt-1">${subText}</p></div>`;
             div.appendChild(infoDiv);
 
-            // 가민G마트일 때 리스트 내에서 직계 수정/삭제가 가능하도록 관리 버튼 배치
             if(currentCategory === "가민G마트") {
                 const btnGroup = document.createElement('div');
                 btnGroup.className = "flex gap-1 pl-2";
@@ -249,23 +249,97 @@
         });
     }
 
-    // 마트 메인 상품 수정 모달 (파일 드래그 앤 드롭 완벽 지원)
+    // G마트 카테고리 관리 기능 모달 창
+    function showManageMartCategoriesModal() {
+        const item = db.restaurants.find(r => r.id === currentRestaurantId);
+        if(!item.martCategories) item.martCategories = ["식료품", "생활용품", "가전/디지털"]; // 초기 기본 카테고리 세팅
+
+        let listHtml = item.martCategories.map((cat, idx) => `
+            <div class="flex justify-between items-center bg-gray-50 p-2.5 border rounded-lg text-sm">
+                <span class="font-bold text-gray-700">📁 ${cat}</span>
+                <div class="flex gap-2">
+                    <button onclick="editMartCategoryName(${idx})" class="text-xs text-blue-500 font-bold">수정</button>
+                    <button onclick="deleteMartCategoryName(${idx})" class="text-xs text-red-500 font-bold">삭제</button>
+                </div>
+            </div>
+        `).join('');
+
+        openModal("마트 카테고리 관리", `
+            <div class="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto">${listHtml || '<p class="text-center text-gray-400 text-xs py-4">등록된 카테고리가 없습니다.</p>'}</div>
+            <div class="border-t pt-3">
+                <p class="text-xs font-bold text-gray-500 mb-1">새 카테고리 추가</p>
+                <input id="new-mart-cat-input" type="text" placeholder="예: 신선식품, 주방용품 등" class="w-full border p-2 rounded text-sm">
+            </div>
+        `, () => {
+            const newCatName = document.getElementById('new-mart-cat-input').value.trim();
+            if(newCatName) {
+                item.martCategories.push(newCatName);
+                saveDB();
+            }
+            showRestaurantDetail(currentRestaurantId); // 변경 레이아웃 즉시 반영 복귀
+            closeModal();
+        });
+    }
+
+    function editMartCategoryName(idx) {
+        const item = db.restaurants.find(r => r.id === currentRestaurantId);
+        const oldName = item.martCategories[idx];
+        const newName = prompt("변경할 카테고리 이름을 입력하세요:", oldName);
+        if(newName && newName.trim() !== "") {
+            // 해당 카테고리에 매핑되어 있던 기존 상품 데이터들 명칭 일괄 업데이트
+            const list = db.restaurants.filter(r => r.category === "가민G마트");
+            list.forEach(p => { if(p.martCategory === oldName) p.martCategory = newName.trim(); });
+            
+            item.martCategories[idx] = newName.trim();
+            saveDB();
+            showManageMartCategoriesModal();
+        }
+    }
+
+    function deleteMartCategoryName(idx) {
+        if(confirm("이 카테고리를 삭제하시겠습니까? 관련 상품의 분류 지정이 해제됩니다.")) {
+            const item = db.restaurants.find(r => r.id === currentRestaurantId);
+            const targetName = item.martCategories[idx];
+            
+            const list = db.restaurants.filter(r => r.category === "가민G마트");
+            list.forEach(p => { if(p.martCategory === targetName) p.martCategory = ""; });
+
+            item.martCategories.splice(idx, 1);
+            saveDB();
+            showManageMartCategoriesModal();
+        }
+    }
+
     function showEditMartItemModal(id) {
         const item = db.restaurants.find(r => r.id === id);
+        // 현재 선택 상태창 활성화를 위한 마트 상위 카테고리 데이터 가공 추출
+        const rootItem = db.restaurants.find(r => r.category === "가민G마트") || { martCategories: ["식료품", "생활용품", "가전/디지털"] };
+        const cats = rootItem.martCategories || ["식료품", "생활용품", "가전/디지털"];
+
+        const selectOptionsHtml = cats.map(c => `
+            <option value="${c}" ${item.martCategory === c ? 'selected' : ''}>${c}</option>
+        `).join('');
+
         openModal("상품 수정", `
             <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 아래 입력창으로 끌어다 놓으세요</p>
             <input id="edit-mart-name" type="text" value="${item.name}" placeholder="상품 명칭" class="w-full border p-2 rounded text-sm mb-2">
+            <div class="mb-2">
+                <label class="text-xs text-gray-500 font-bold mb-1 block">소속 카테고리 지정</label>
+                <select id="edit-mart-cat-select" class="w-full border p-2 rounded text-sm bg-white">${selectOptionsHtml}</select>
+            </div>
             <input id="edit-mart-price" type="number" value="${item.price || 0}" placeholder="판매 가격" class="w-full border p-2 rounded text-sm mb-2">
             <input id="edit-mart-img" type="text" value="${item.img || ''}" placeholder="이미지 URL 주소 또는 파일 드래그" 
                 class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white transition-colors"
                 ondrop="handleImageDrop(event, 'edit-mart-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
         `, () => {
             const newName = document.getElementById('edit-mart-name').value;
+            const newCat = document.getElementById('edit-mart-cat-select').value;
             const newPrice = parseInt(document.getElementById('edit-mart-price').value) || 0;
             const newImg = document.getElementById('edit-mart-img').value;
 
             if(!newName) return;
             item.name = newName;
+            item.martCategory = newCat;
             item.price = newPrice;
             item.img = newImg;
 
@@ -275,7 +349,6 @@
         });
     }
 
-    // 마트 메인 상품 삭제 기능
     function deleteMartItem(id) {
         if(confirm("이 상품을 삭제하시겠습니까?")) {
             db.restaurants = db.restaurants.filter(r => r.id !== id);
@@ -294,7 +367,6 @@
         const foodContainer = document.getElementById('menu-sub-categories');
 
         if(currentCategory === "가민G마트") {
-            // 마트 모드: 서브카테고리 숨김, 간소화된 상세 노출
             martContainer.classList.remove('hidden');
             foodContainer.classList.add('hidden');
             
@@ -307,9 +379,8 @@
                     </div>
                 </div>
             `;
-            renderMartSingleList(res);
+            renderMartGroupedCategories(res);
         } else {
-            // 일반 음식점 모드: 3단 분류 원상복구
             martContainer.classList.add('hidden');
             foodContainer.classList.remove('hidden');
             
@@ -318,28 +389,50 @@
         }
     }
 
-    // 가민G마트 전용 간소화된 단일 구매 목록 레이아웃 render
-    function renderMartSingleList(res) {
-        const container = document.getElementById('mart-items-list');
-        container.innerHTML = "";
+    // 가민G마트 내 카테고리별로 필터링되어 출력되는 상품 뷰 구현
+    function renderMartGroupedCategories(res) {
+        const targetContainer = document.getElementById('mart-categories-and-items');
+        targetContainer.innerHTML = "";
 
-        const div = document.createElement('div');
-        div.className = "p-4 border rounded-xl bg-gray-50/50 flex justify-between items-center";
-        div.innerHTML = `
-            <div>
-                <p class="font-bold text-gray-800 text-base">${res.name}</p>
-                <p class="text-sm text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
-                    <button onclick="updateMartQty(-1)" class="font-bold text-gray-300">-</button>
-                    <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
-                    <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc]">+</button>
+        if(!res.martCategories) res.martCategories = ["식료품", "생활용품", "가전/디지털"];
+        
+        // 현재 해당 마트 카테고리에 매칭되는 유일 단일 상품 리스트 가공
+        res.martCategories.forEach(categoryName => {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = "bg-white p-4 shadow-sm rounded-lg border border-gray-100";
+            
+            // 해당 카테고리에 할당된 상품 데이터 확인 (매칭 조건)
+            const isMatched = res.martCategory === categoryName;
+
+            let productHtml = "";
+            if(isMatched) {
+                productHtml = `
+                    <div class="p-3 border rounded-xl bg-gray-50/50 flex justify-between items-center mt-2">
+                        <div>
+                            <p class="font-bold text-gray-800 text-sm">${res.name}</p>
+                            <p class="text-xs text-[#2ac1bc] font-bold mt-0.5">${(res.price || 0).toLocaleString()}원</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2 border rounded-full px-2.5 py-0.5 bg-white shadow-xs">
+                                <button onclick="updateMartQty(-1)" class="font-bold text-gray-300 text-xs">-</button>
+                                <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
+                                <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc] text-xs">+</button>
+                            </div>
+                            <button onclick="addMartItemToCart()" class="px-4 py-1.5 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-sm">담기</button>
+                        </div>
+                    </div>`;
+            } else {
+                productHtml = `<p class="text-center text-gray-300 text-xs py-3 font-medium">이 카테고리에 등록된 상품이 없습니다.</p>`;
+            }
+
+            sectionDiv.innerHTML = `
+                <div class="border-b pb-1.5">
+                    <h4 class="font-extrabold text-sm text-gray-800">📂 ${categoryName}</h4>
                 </div>
-                <button onclick="addMartItemToCart()" class="px-5 py-2 baemin-navy text-white text-xs font-bold rounded-full shadow-md">장바구니 담기</button>
-            </div>
-        `;
-        container.appendChild(div);
+                <div class="flex flex-col mt-1">${productHtml}</div>
+            `;
+            targetContainer.appendChild(sectionDiv);
+        });
     }
 
     function updateMartQty(change) {
@@ -530,16 +623,24 @@
         const isMart = currentCategory === "가민G마트";
         
         if (isMart) {
-            // 가민G마트 맞춤형 상품 인풋 구조 (드래그앤드롭 인풋 포함)
+            // 상품 최초 추가 시 동적 셀렉박스에 뿌릴 임시 카테고리 풀 정의
+            const sampleCats = ["식료품", "생활용품", "가전/디지털"];
+            const selectOptionsHtml = sampleCats.map(c => `<option value="${c}">${c}</option>`).join('');
+
             openModal("상품 등록", `
                 <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일을 아래 입력창으로 끌어다 놓으세요</p>
                 <input id="new-res-name" type="text" placeholder="상품 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm mb-2">
+                <div class="mb-2">
+                    <label class="text-xs text-gray-500 font-bold mb-1 block">소속 카테고리 선택</label>
+                    <select id="new-res-cat-select" class="w-full border p-2 rounded text-sm bg-white">${selectOptionsHtml}</select>
+                </div>
                 <input id="new-res-price" type="number" placeholder="가격을 입력하세요" class="w-full border p-3 rounded-lg text-sm mb-2">
                 <input id="new-res-img" type="text" placeholder="이미지 URL 주소 또는 파일 드래그" 
                     class="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors"
                     ondrop="handleImageDrop(event, 'new-res-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
             `, () => {
                 const name = document.getElementById('new-res-name').value;
+                const selectedMartCat = document.getElementById('new-res-cat-select').value;
                 const price = parseInt(document.getElementById('new-res-price').value) || 0;
                 const img = document.getElementById('new-res-img').value;
                 if(!name) return;
@@ -548,6 +649,8 @@
                     id: Date.now(), 
                     category: currentCategory, 
                     name: name, 
+                    martCategory: selectedMartCat,
+                    martCategories: sampleCats, // 마트 객체 고유의 카테고리 리스트 바인딩
                     price: price,
                     img: img,
                     menus: { normal: [], set: [], side: [] } 
@@ -555,7 +658,6 @@
                 saveDB(); renderRestaurants(); closeModal();
             });
         } else {
-            // 기존 음식점 등록 폼 유지
             openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
                 const name = document.getElementById('new-res-name').value;
                 if(!name) return;
