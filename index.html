@@ -50,6 +50,16 @@
             <h2 id="current-category-name" class="text-xl font-bold text-gray-800"></h2>
             <button id="add-item-btn" onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
         </div>
+
+        <!-- 가민G마트 메인 상단 전용 카테고리 버튼 필터 영역 (G마트 진입 시에만 유동적으로 활성화) -->
+        <div id="mart-main-filter-container" class="bg-white p-4 shadow-sm rounded-lg mb-4 hidden flex flex-col gap-3">
+            <div class="flex justify-between items-center">
+                <span class="text-xs text-gray-400 font-bold">* 분류 버튼을 눌러 원하는 상품 카테고리만 확인하세요.</span>
+                <button onclick="addNewMartCategoryDirect()" class="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm hover:bg-amber-600">➕ 카테고리 추가</button>
+            </div>
+            <div id="mart-main-category-buttons" class="flex flex-wrap gap-2 pt-2 border-t border-gray-100"></div>
+        </div>
+
         <div id="restaurants-container" class="grid gap-4"></div>
         <button onclick="showSection('category-section')" class="mt-6 w-full py-3 border border-gray-300 rounded text-gray-500 bg-white font-bold">🏠 홈으로 돌아가기</button>
     </section>
@@ -57,17 +67,8 @@
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
         
-        <!-- 가민G마트 전용 카테고리 버튼 필터 및 상품 레이아웃 컨테이너 -->
+        <!-- 가민G마트 전용 단일 상품 상세 컨테이너 -->
         <div id="mart-product-container" class="flex flex-col gap-4 hidden">
-            <div class="bg-white p-4 shadow-sm flex flex-col gap-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-400 font-bold">* 분류 버튼을 눌러 원하는 상품 목록을 필터링하세요.</span>
-                    <button onclick="showManageMartCategoriesModal()" class="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm hover:bg-amber-600">📁 마트 카테고리 관리</button>
-                </div>
-                <!-- 가민G마트 전용 동적 탭 버튼 컨테이너 -->
-                <div id="mart-category-buttons" class="flex flex-wrap gap-2 pt-2 border-t border-gray-100"></div>
-            </div>
-            <!-- 필터링된 상품들이 나타나는 컨테이너 -->
             <div id="mart-items-list-box" class="grid gap-4"></div>
         </div>
 
@@ -132,10 +133,12 @@
 
 <script>
     const categories = ["가민G마트", "분식", "고기", "치킨", "패스트푸드", "피자", "족발", "야식", "국·탕·찌개", "찜", "도시락", "카페·베이커리", "디저트", "고급요리", "한식", "중식", "일식", "동남아시아", "남아시아", "서아시아", "중앙아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "동아프리카", "서아프리카", "남아프리카", "북아프리카", "미국", "북미", "남미", "카리브해", "오세아니아", "호주", "뉴질랜드"];
-    let db = JSON.parse(localStorage.getItem('deliveryDB_v3')) || { restaurants: [], cart: [] };
+    
+    // 글로벌 DB 구조 관리 (G마트 전용 카테고리 풀 보관을 위해 전역 세팅 분리 보장)
+    let db = JSON.parse(localStorage.getItem('deliveryDB_v4')) || { restaurants: [], cart: [], globalMartCategories: ["식료품", "생활용품", "신선식품"] };
     let currentCategory = "";
     let currentRestaurantId = null;
-    let selectedMartFilter = "all"; // 마트용 선택 버튼 상태 추적 변수 ('all', 'unclassified', 또는 '카테고리명')
+    let selectedMartFilter = "all"; // 메인 리스트 제어용 필터값
 
     function init() {
         const catContainer = document.getElementById('category-section');
@@ -164,14 +167,8 @@
         }
     }
 
-    function onDragOver(e) {
-        e.preventDefault();
-        e.currentTarget.classList.add('drag-over');
-    }
-
-    function onDragLeave(e) {
-        e.currentTarget.classList.remove('drag-over');
-    }
+    function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+    function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 
     function executeSearch() {
         const query = document.getElementById('search-input').value.trim();
@@ -207,7 +204,62 @@
         currentCategory = category;
         showSection('restaurant-list-section');
         document.getElementById('current-category-name').innerText = category;
+        
+        const filterBox = document.getElementById('mart-main-filter-container');
+        if (category === "가민G마트") {
+            filterBox.classList.remove('hidden');
+            selectedMartFilter = "all"; // 전체보기 초기화
+            renderMartMainCategoryButtons();
+        } else {
+            filterBox.classList.add('hidden');
+        }
+        
         renderRestaurants();
+    }
+
+    // 가민G마트 페이지 상단에 탭 버튼 인터페이스 동적 구현
+    function renderMartMainCategoryButtons() {
+        const btnContainer = document.getElementById('mart-main-category-buttons');
+        btnContainer.innerHTML = "";
+
+        if(!db.globalMartCategories) db.globalMartCategories = ["식료품", "생활용품", "신선식품"];
+
+        // 1. [전체보기] 버튼
+        const allBtn = document.createElement('button');
+        allBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'all' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        allBtn.innerText = "✨ 전체보기";
+        allBtn.onclick = () => { selectedMartFilter = "all"; renderMartMainCategoryButtons(); renderRestaurants(); };
+        btnContainer.appendChild(allBtn);
+
+        // 2. 동적 추가 명명 버튼 풀 출력
+        db.globalMartCategories.forEach(catName => {
+            const btn = document.createElement('button');
+            btn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === catName ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+            btn.innerText = `📁 ${catName}`;
+            btn.onclick = () => { selectedMartFilter = catName; renderMartMainCategoryButtons(); renderRestaurants(); };
+            btnContainer.appendChild(btn);
+        });
+
+        // 3. [미분류 상품] 버튼
+        const uncatBtn = document.createElement('button');
+        uncatBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'unclassified' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        uncatBtn.innerText = "⚠️ 미분류 상품";
+        uncatBtn.onclick = () => { selectedMartFilter = "unclassified"; renderMartMainCategoryButtons(); renderRestaurants(); };
+        btnContainer.appendChild(uncatBtn);
+    }
+
+    // 새로운 마트 카테고리 즉시 명명 추가 스크립트 기능
+    function addNewMartCategoryDirect() {
+        const newCatName = prompt("새롭게 추가 지정할 마트 카테고리명을 직접 입력하세요:");
+        if(newCatName && newCatName.trim() !== "") {
+            if(!db.globalMartCategories.includes(newCatName.trim())) {
+                db.globalMartCategories.push(newCatName.trim());
+                saveDB();
+                renderMartMainCategoryButtons();
+            } else {
+                alert("이미 존재하는 분류 카테고리입니다.");
+            }
+        }
     }
 
     function renderRestaurants() {
@@ -221,7 +273,22 @@
             addBtn.innerText = "+ 음식점 추가";
         }
 
-        const list = db.restaurants.filter(r => r.category === currentCategory);
+        let list = db.restaurants.filter(r => r.category === currentCategory);
+
+        // 가민G마트 전용 - 선택한 상단 버튼 탭 카테고리에 속하는 상품만 필터링되도록 제어 변경
+        if (currentCategory === "가민G마트") {
+            if (selectedMartFilter === "unclassified") {
+                list = list.filter(res => !res.martCategory || !db.globalMartCategories.includes(res.martCategory));
+            } else if (selectedMartFilter !== "all") {
+                list = list.filter(res => res.martCategory === selectedMartFilter);
+            }
+        }
+
+        if (list.length === 0 && currentCategory === "가민G마트") {
+            container.innerHTML = `<div class="bg-white p-8 text-center text-gray-400 text-sm rounded-xl border border-dashed">해당 카테고리 버튼 필터에 일치하는 등록 상품이 존재하지 않습니다.</div>`;
+            return;
+        }
+
         list.forEach(res => {
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100 items-center justify-between";
@@ -254,78 +321,12 @@
         });
     }
 
-    // 마트 카테고리 관리 기능 모달
-    function showManageMartCategoriesModal() {
-        const item = db.restaurants.find(r => r.id === currentRestaurantId);
-        if(!item.martCategories) item.martCategories = []; 
-
-        let listHtml = item.martCategories.map((cat, idx) => `
-            <div class="flex justify-between items-center bg-gray-50 p-2.5 border rounded-lg text-sm">
-                <span class="font-bold text-gray-700">📁 ${cat}</span>
-                <div class="flex gap-2">
-                    <button onclick="editMartCategoryName(${idx})" class="text-xs text-blue-500 font-bold">수정</button>
-                    <button onclick="deleteMartCategoryName(${idx})" class="text-xs text-red-500 font-bold">삭제</button>
-                </div>
-            </div>
-        `).join('');
-
-        openModal("마트 카테고리 직명 관리", `
-            <div class="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto">${listHtml || '<p class="text-center text-gray-400 text-xs py-4">등록된 맞춤 카테고리가 없습니다.</p>'}</div>
-            <div class="border-t pt-3">
-                <p class="text-xs font-bold text-gray-500 mb-1">새 카테고리 직접 명명</p>
-                <input id="new-mart-cat-input" type="text" placeholder="생성할 카테고리 이름을 입력하세요" class="w-full border p-2 rounded text-sm">
-            </div>
-        `, () => {
-            const newCatName = document.getElementById('new-mart-cat-input').value.trim();
-            if(newCatName) {
-                if(!item.martCategories.includes(newCatName)){
-                    item.martCategories.push(newCatName);
-                    saveDB();
-                } else {
-                    alert("이미 존재하는 카테고리 명칭입니다.");
-                }
-            }
-            selectedMartFilter = "all"; // 카테고리 변화 시 안전하게 필터 리셋
-            showRestaurantDetail(currentRestaurantId); 
-            closeModal();
-        });
-    }
-
-    function editMartCategoryName(idx) {
-        const item = db.restaurants.find(r => r.id === currentRestaurantId);
-        const oldName = item.martCategories[idx];
-        const newName = prompt("변경할 카테고리 이름을 직접 입력하세요:", oldName);
-        if(newName && newName.trim() !== "" && newName.trim() !== oldName) {
-            const list = db.restaurants.filter(r => r.category === "가민G마트");
-            list.forEach(p => { if(p.martCategory === oldName) p.martCategory = newName.trim(); });
-            
-            item.martCategories[idx] = newName.trim();
-            saveDB();
-            showManageMartCategoriesModal();
-        }
-    }
-
-    function deleteMartCategoryName(idx) {
-        if(confirm("이 카테고리를 삭제하시겠습니까? 해당 소속 상품은 [미분류] 상태로 전환됩니다.")) {
-            const item = db.restaurants.find(r => r.id === currentRestaurantId);
-            const targetName = item.martCategories[idx];
-            
-            const list = db.restaurants.filter(r => r.category === "가민G마트");
-            list.forEach(p => { if(p.martCategory === targetName) p.martCategory = ""; });
-
-            item.martCategories.splice(idx, 1);
-            saveDB();
-            showManageMartCategoriesModal();
-        }
-    }
-
     function showEditMartItemModal(id) {
         const item = db.restaurants.find(r => r.id === id);
-        const rootItem = db.restaurants.find(r => r.id === currentRestaurantId) || item;
-        if(!rootItem.martCategories) rootItem.martCategories = [];
+        if(!db.globalMartCategories) db.globalMartCategories = ["식료품", "생활용품", "신선식품"];
 
         let selectOptionsHtml = `<option value="">-- 카테고리 선택 없음 (미분류) --</option>`;
-        selectOptionsHtml += rootItem.martCategories.map(c => `
+        selectOptionsHtml += db.globalMartCategories.map(c => `
             <option value="${c}" ${item.martCategory === c ? 'selected' : ''}>${c}</option>
         `).join('');
 
@@ -384,14 +385,12 @@
                     ${res.img ? `<img src="${res.img}" class="w-20 h-20 object-cover rounded-xl shadow-md">` : ''}
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800">${res.name}</h2>
+                        <p class="text-xs text-blue-500 font-bold mt-1">카테고리: ${res.martCategory || '미분류'}</p>
                         <p class="text-lg text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
                     </div>
                 </div>
             `;
-            // 마트 모드 진입 시 카테고리 단추 목록 및 상품 필터링 화면 빌드
-            selectedMartFilter = "all"; 
-            renderMartCategoryButtons(res);
-            renderMartFilteredItems(res);
+            renderMartItemPurchaseView(res);
         } else {
             martContainer.classList.add('hidden');
             foodContainer.classList.remove('hidden');
@@ -401,94 +400,30 @@
         }
     }
 
-    // 가민G마트의 맞춤형 단추(Button) 탭 목록들을 그려내는 제어부
-    function renderMartCategoryButtons(res) {
-        const btnContainer = document.getElementById('mart-category-buttons');
-        btnContainer.innerHTML = "";
-
-        if(!res.martCategories) res.martCategories = [];
-
-        // 1. [전체보기] 기본형 단추 구현
-        const allBtn = document.createElement('button');
-        allBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'all' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        allBtn.innerText = "✨ 전체보기";
-        allBtn.onclick = () => { selectedMartFilter = "all"; toggleMartActiveButton(res); };
-        btnContainer.appendChild(allBtn);
-
-        // 2. 직접 등록 생성된 명명 단추 목록 스캔 출력
-        res.martCategories.forEach(catName => {
-            const btn = document.createElement('button');
-            btn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === catName ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-            btn.innerText = `📁 ${catName}`;
-            btn.onclick = () => { selectedMartFilter = catName; toggleMartActiveButton(res); };
-            btnContainer.appendChild(btn);
-        });
-
-        // 3. [미분류 상품] 고유 예외처리용 단추 구성
-        const uncatBtn = document.createElement('button');
-        uncatBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'unclassified' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        uncatBtn.innerText = "⚠️ 미분류 상품";
-        uncatBtn.onclick = () => { selectedMartFilter = "unclassified"; toggleMartActiveButton(res); };
-        btnContainer.appendChild(uncatBtn);
-    }
-
-    // 단추 클릭 토글 액션 처리 인터페이스 핸들러
-    function toggleMartActiveButton(res) {
-        renderMartCategoryButtons(res);
-        renderMartFilteredItems(res);
-    }
-
-    // 선택된 단추 필터 분류 명칭 조건에 종속되어 실시간 렌더링되는 상품 리스트 블록
-    function renderMartFilteredItems(res) {
+    // G마트 상품 세부 구매 수량 선택창 활성화
+    function renderMartItemPurchaseView(res) {
         const targetBox = document.getElementById('mart-items-list-box');
         targetBox.innerHTML = "";
 
-        // 조건 검사 분기 플래그
-        let shouldShow = false;
-        let groupTitleText = "";
-
-        if (selectedMartFilter === "all") {
-            shouldShow = true;
-            groupTitleText = "전체 리스트 목록 상품";
-        } else if (selectedMartFilter === "unclassified") {
-            shouldShow = (!res.martCategory || (res.martCategories && !res.martCategories.includes(res.martCategory)));
-            groupTitleText = "미분류 보관함 상품";
-        } else {
-            shouldShow = (res.martCategory === selectedMartFilter);
-            groupTitleText = `📁 ${selectedMartFilter} 분과 소속 상품`;
-        }
-
-        if (shouldShow) {
-            const wrapCard = document.createElement('div');
-            wrapCard.className = "bg-white p-5 shadow-sm rounded-xl border border-gray-100";
-            
-            wrapCard.innerHTML = `
-                <div class="border-b pb-2 mb-3">
-                    <h4 class="font-extrabold text-sm text-gray-800">${groupTitleText}</h4>
+        const wrapCard = document.createElement('div');
+        wrapCard.className = "bg-white p-5 shadow-sm rounded-xl border border-gray-100";
+        wrapCard.innerHTML = `
+            <div class="p-4 border rounded-xl bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <p class="font-bold text-gray-800 text-base">${res.name}</p>
+                    <p class="text-sm text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
                 </div>
-                <div class="p-4 border rounded-xl bg-gray-50/50 flex justify-between items-center">
-                    <div>
-                        <p class="font-bold text-gray-800 text-base">${res.name}</p>
-                        <p class="text-sm text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
+                        <button onclick="updateMartQty(-1)" class="font-bold text-gray-300">-</button>
+                        <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
+                        <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc]">+</button>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
-                            <button onclick="updateMartQty(-1)" class="font-bold text-gray-300">-</button>
-                            <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
-                            <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc]">+</button>
-                        </div>
-                        <button onclick="addMartItemToCart()" class="px-5 py-2 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-md transition-transform active:scale-95">장바구니 담기</button>
-                    </div>
+                    <button onclick="addMartItemToCart()" class="px-5 py-2 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-md transition-transform active:scale-95">장바구니 담기</button>
                 </div>
-            `;
-            targetBox.appendChild(wrapCard);
-        } else {
-            // 해당 조건 카테고리에 매핑될 노출 대상 데이터가 없을 때의 가이드라인 인터페이스 표출
-            const emptyDiv = document.createElement('div');
-            emptyDiv.className = "bg-white p-8 text-center text-gray-300 text-xs font-medium border border-dashed rounded-xl";
-            emptyDiv.innerText = "이 카테고리 버튼 필터 조건에 부합하는 활성화 상품이 없습니다.";
-            targetBox.appendChild(emptyDiv);
-        }
+            </div>
+        `;
+        targetBox.appendChild(wrapCard);
     }
 
     function updateMartQty(change) {
@@ -680,29 +615,35 @@
         const isMart = currentCategory === "가민G마트";
         
         if (isMart) {
+            if(!db.globalMartCategories) db.globalMartCategories = ["식료품", "생활용품", "신선식품"];
+            
+            // 등록 창에서 직접 명명된 풀링 데이터 기반 카테고리 매칭 선택 지원
+            let selectOptionsHtml = `<option value="">-- 카테고리 선택 없음 (미분류) --</option>`;
+            selectOptionsHtml += db.globalMartCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+
             openModal("마트 신규 상품 명명 등록", `
                 <p class="text-[10px] text-blue-500 font-bold mb-1">* 이미지 파일 드래그 호환</p>
                 <input id="new-res-name" type="text" placeholder="상품 명칭을 명명하세요" class="w-full border p-3 rounded-lg text-sm mb-2">
-                <input id="new-res-cat-direct" type="text" placeholder="분류 카테고리 직접 명명 (선택사항)" class="w-full border p-3 rounded-lg text-sm mb-2 bg-blue-50/50">
+                <div class="mb-2">
+                    <label class="text-xs text-gray-500 font-bold mb-1 block">소속 지정 카테고리</label>
+                    <select id="new-res-cat-select" class="w-full border p-2 rounded text-sm bg-white">${selectOptionsHtml}</select>
+                </div>
                 <input id="new-res-price" type="number" placeholder="판매 가격 설정" class="w-full border p-3 rounded-lg text-sm mb-2">
                 <input id="new-res-img" type="text" placeholder="이미지 링크 또는 파일 드래그 추가" 
                     class="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors"
                     ondrop="handleImageDrop(event, 'new-res-img')" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
             `, () => {
                 const name = document.getElementById('new-res-name').value.trim();
-                const directCat = document.getElementById('new-res-cat-direct').value.trim();
+                const selectedCat = document.getElementById('new-res-cat-select').value;
                 const price = parseInt(document.getElementById('new-res-price').value) || 0;
                 const img = document.getElementById('new-res-img').value;
                 if(!name) return;
-                
-                const initialCats = directCat ? [directCat] : [];
 
                 db.restaurants.push({ 
                     id: Date.now(), 
                     category: currentCategory, 
                     name: name, 
-                    martCategory: directCat,
-                    martCategories: initialCats, 
+                    martCategory: selectedCat,
                     price: price,
                     img: img,
                     menus: { normal: [], set: [], side: [] } 
@@ -788,7 +729,7 @@
         }, 2000);
     }
 
-    function saveDB() { localStorage.setItem('deliveryDB_v3', JSON.stringify(db)); }
+    function saveDB() { localStorage.setItem('deliveryDB_v4', JSON.stringify(db)); }
     function openModal(title, content, onConfirm) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-content').innerHTML = content;
