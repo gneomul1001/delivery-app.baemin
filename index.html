@@ -57,13 +57,18 @@
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
         
-        <!-- 가민G마트 전용 카테고리별 상품 컨테이너 -->
+        <!-- 가민G마트 전용 카테고리 버튼 필터 및 상품 레이아웃 컨테이너 -->
         <div id="mart-product-container" class="flex flex-col gap-4 hidden">
-            <div class="bg-white p-4 shadow-sm flex justify-between items-center">
-                <span class="text-xs text-gray-400 font-bold">* 카테고리명을 직접 지정하고 상품을 할당할 수 있습니다.</span>
-                <button onclick="showManageMartCategoriesModal()" class="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm hover:bg-amber-600">📁 마트 카테고리 관리</button>
+            <div class="bg-white p-4 shadow-sm flex flex-col gap-3 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-400 font-bold">* 분류 버튼을 눌러 원하는 상품 목록을 필터링하세요.</span>
+                    <button onclick="showManageMartCategoriesModal()" class="bg-amber-500 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm hover:bg-amber-600">📁 마트 카테고리 관리</button>
+                </div>
+                <!-- 가민G마트 전용 동적 탭 버튼 컨테이너 -->
+                <div id="mart-category-buttons" class="flex flex-wrap gap-2 pt-2 border-t border-gray-100"></div>
             </div>
-            <div id="mart-categories-and-items" class="flex flex-col gap-4"></div>
+            <!-- 필터링된 상품들이 나타나는 컨테이너 -->
+            <div id="mart-items-list-box" class="grid gap-4"></div>
         </div>
 
         <!-- 기존 음식점용 3단 메뉴 서브 카테고리 -->
@@ -130,6 +135,7 @@
     let db = JSON.parse(localStorage.getItem('deliveryDB_v3')) || { restaurants: [], cart: [] };
     let currentCategory = "";
     let currentRestaurantId = null;
+    let selectedMartFilter = "all"; // 마트용 선택 버튼 상태 추적 변수 ('all', 'unclassified', 또는 '카테고리명')
 
     function init() {
         const catContainer = document.getElementById('category-section');
@@ -248,7 +254,7 @@
         });
     }
 
-    // 마트 전용 카테고리 실시간 추가/수정/삭제 모달
+    // 마트 카테고리 관리 기능 모달
     function showManageMartCategoriesModal() {
         const item = db.restaurants.find(r => r.id === currentRestaurantId);
         if(!item.martCategories) item.martCategories = []; 
@@ -279,6 +285,7 @@
                     alert("이미 존재하는 카테고리 명칭입니다.");
                 }
             }
+            selectedMartFilter = "all"; // 카테고리 변화 시 안전하게 필터 리셋
             showRestaurantDetail(currentRestaurantId); 
             closeModal();
         });
@@ -314,7 +321,6 @@
 
     function showEditMartItemModal(id) {
         const item = db.restaurants.find(r => r.id === id);
-        // 부모 소속 개념의 유연한 바인딩 처리
         const rootItem = db.restaurants.find(r => r.id === currentRestaurantId) || item;
         if(!rootItem.martCategories) rootItem.martCategories = [];
 
@@ -382,7 +388,10 @@
                     </div>
                 </div>
             `;
-            renderMartGroupedCategories(res);
+            // 마트 모드 진입 시 카테고리 단추 목록 및 상품 필터링 화면 빌드
+            selectedMartFilter = "all"; 
+            renderMartCategoryButtons(res);
+            renderMartFilteredItems(res);
         } else {
             martContainer.classList.add('hidden');
             foodContainer.classList.remove('hidden');
@@ -392,77 +401,99 @@
         }
     }
 
-    // 명명된 내부 카테고리 분류 인터페이스 렌더링
-    function renderMartGroupedCategories(res) {
-        const targetContainer = document.getElementById('mart-categories-and-items');
-        targetContainer.innerHTML = "";
+    // 가민G마트의 맞춤형 단추(Button) 탭 목록들을 그려내는 제어부
+    function renderMartCategoryButtons(res) {
+        const btnContainer = document.getElementById('mart-category-buttons');
+        btnContainer.innerHTML = "";
 
         if(!res.martCategories) res.martCategories = [];
-        
-        // 1. 커스텀 지정 명명 카테고리들 순회 출력
-        res.martCategories.forEach(categoryName => {
-            const sectionDiv = document.createElement('div');
-            sectionDiv.className = "bg-white p-4 shadow-sm rounded-lg border border-gray-100 mb-2";
-            
-            const isMatched = res.martCategory === categoryName;
 
-            let productHtml = "";
-            if(isMatched) {
-                productHtml = `
-                    <div class="p-3 border rounded-xl bg-gray-50/50 flex justify-between items-center mt-2">
-                        <div>
-                            <p class="font-bold text-gray-800 text-sm">${res.name}</p>
-                            <p class="text-xs text-[#2ac1bc] font-bold mt-0.5">${(res.price || 0).toLocaleString()}원</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center gap-2 border rounded-full px-2.5 py-0.5 bg-white shadow-xs">
-                                <button onclick="updateMartQty(-1)" class="font-bold text-gray-300 text-xs">-</button>
-                                <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
-                                <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc] text-xs">+</button>
-                            </div>
-                            <button onclick="addMartItemToCart()" class="px-4 py-1.5 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-sm">담기</button>
-                        </div>
-                    </div>`;
-            } else {
-                productHtml = `<p class="text-center text-gray-300 text-xs py-2">등록 상품 없음</p>`;
-            }
+        // 1. [전체보기] 기본형 단추 구현
+        const allBtn = document.createElement('button');
+        allBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'all' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        allBtn.innerText = "✨ 전체보기";
+        allBtn.onclick = () => { selectedMartFilter = "all"; toggleMartActiveButton(res); };
+        btnContainer.appendChild(allBtn);
 
-            sectionDiv.innerHTML = `
-                <div class="border-b pb-1.5">
-                    <h4 class="font-extrabold text-sm text-gray-800">📁 ${categoryName}</h4>
-                </div>
-                <div class="flex flex-col mt-1">${productHtml}</div>
-            `;
-            targetContainer.appendChild(sectionDiv);
+        // 2. 직접 등록 생성된 명명 단추 목록 스캔 출력
+        res.martCategories.forEach(catName => {
+            const btn = document.createElement('button');
+            btn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === catName ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+            btn.innerText = `📁 ${catName}`;
+            btn.onclick = () => { selectedMartFilter = catName; toggleMartActiveButton(res); };
+            btnContainer.appendChild(btn);
         });
 
-        // 2. 미분류 영역 표출 (카테고리가 정의되지 않았거나 매칭이 없을 때의 예외 방어코드)
-        if(!res.martCategory || res.martCategories.length === 0) {
-            const uncatDiv = document.createElement('div');
-            uncatDiv.className = "bg-gray-100 p-4 rounded-lg border border-dashed";
-            uncatDiv.innerHTML = `
-                <h4 class="font-bold text-xs text-gray-500 mb-2">⚠️ 지정 안 됨 (미분류 상품)</h4>
-                <div class="p-3 border rounded-xl bg-white flex justify-between items-center">
+        // 3. [미분류 상품] 고유 예외처리용 단추 구성
+        const uncatBtn = document.createElement('button');
+        uncatBtn.className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedMartFilter === 'unclassified' ? 'bg-[#2ac1bc] text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        uncatBtn.innerText = "⚠️ 미분류 상품";
+        uncatBtn.onclick = () => { selectedMartFilter = "unclassified"; toggleMartActiveButton(res); };
+        btnContainer.appendChild(uncatBtn);
+    }
+
+    // 단추 클릭 토글 액션 처리 인터페이스 핸들러
+    function toggleMartActiveButton(res) {
+        renderMartCategoryButtons(res);
+        renderMartFilteredItems(res);
+    }
+
+    // 선택된 단추 필터 분류 명칭 조건에 종속되어 실시간 렌더링되는 상품 리스트 블록
+    function renderMartFilteredItems(res) {
+        const targetBox = document.getElementById('mart-items-list-box');
+        targetBox.innerHTML = "";
+
+        // 조건 검사 분기 플래그
+        let shouldShow = false;
+        let groupTitleText = "";
+
+        if (selectedMartFilter === "all") {
+            shouldShow = true;
+            groupTitleText = "전체 리스트 목록 상품";
+        } else if (selectedMartFilter === "unclassified") {
+            shouldShow = (!res.martCategory || (res.martCategories && !res.martCategories.includes(res.martCategory)));
+            groupTitleText = "미분류 보관함 상품";
+        } else {
+            shouldShow = (res.martCategory === selectedMartFilter);
+            groupTitleText = `📁 ${selectedMartFilter} 분과 소속 상품`;
+        }
+
+        if (shouldShow) {
+            const wrapCard = document.createElement('div');
+            wrapCard.className = "bg-white p-5 shadow-sm rounded-xl border border-gray-100";
+            
+            wrapCard.innerHTML = `
+                <div class="border-b pb-2 mb-3">
+                    <h4 class="font-extrabold text-sm text-gray-800">${groupTitleText}</h4>
+                </div>
+                <div class="p-4 border rounded-xl bg-gray-50/50 flex justify-between items-center">
                     <div>
-                        <p class="font-bold text-gray-800 text-sm">${res.name}</p>
-                        <p class="text-xs text-[#2ac1bc] font-bold mt-0.5">${(res.price || 0).toLocaleString()}원</p>
+                        <p class="font-bold text-gray-800 text-base">${res.name}</p>
+                        <p class="text-sm text-[#2ac1bc] font-bold mt-1">${(res.price || 0).toLocaleString()}원</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="flex items-center gap-2 border rounded-full px-2.5 py-0.5 bg-white shadow-xs">
-                            <button onclick="updateMartQty(-1)" class="font-bold text-gray-300 text-xs">-</button>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-3 border rounded-full px-3 py-1 bg-white shadow-sm">
+                            <button onclick="updateMartQty(-1)" class="font-bold text-gray-300">-</button>
                             <span id="mart-qty-counter" class="text-xs font-bold w-4 text-center">1</span>
-                            <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc] text-xs">+</button>
+                            <button onclick="updateMartQty(1)" class="font-bold text-[#2ac1bc]">+</button>
                         </div>
-                        <button onclick="addMartItemToCart()" class="px-4 py-1.5 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-sm">담기</button>
+                        <button onclick="addMartItemToCart()" class="px-5 py-2 bg-[#2ac1bc] text-white text-xs font-bold rounded-full shadow-md transition-transform active:scale-95">장바구니 담기</button>
                     </div>
                 </div>
             `;
-            targetContainer.appendChild(uncatDiv);
+            targetBox.appendChild(wrapCard);
+        } else {
+            // 해당 조건 카테고리에 매핑될 노출 대상 데이터가 없을 때의 가이드라인 인터페이스 표출
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = "bg-white p-8 text-center text-gray-300 text-xs font-medium border border-dashed rounded-xl";
+            emptyDiv.innerText = "이 카테고리 버튼 필터 조건에 부합하는 활성화 상품이 없습니다.";
+            targetBox.appendChild(emptyDiv);
         }
     }
 
     function updateMartQty(change) {
         const span = document.getElementById('mart-qty-counter');
+        if(!span) return;
         let current = parseInt(span.innerText);
         current = Math.max(1, current + change);
         span.innerText = current;
