@@ -6,7 +6,7 @@
     <title>가짜의 민족</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=300;400;700&display=swap');
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f6f6f6; }
         .baemin-navy { background-color: #2ac1bc; } 
         .hidden { display: none; }
@@ -355,19 +355,21 @@
             }
         }
 
-        if (list.length === 0 && currentCategory === "가민G마트") {
-            container.innerHTML = `<div class="bg-white p-8 text-center text-gray-400 text-sm rounded-xl border border-dashed">해당 카테고리 버튼 필터에 일치하는 등록 상품이 존재하지 않습니다.</div>`;
+        if (list.length === 0) {
+            const msg = currentCategory === "가민G마트" ? "해당 카테고리에 일치하는 등록 상품이 없습니다." : "등록된 음식점이 없습니다. 첫 음식점을 추가해보세요!";
+            container.innerHTML = `<div class="bg-white p-8 text-center text-gray-400 text-sm rounded-xl border border-dashed">${msg}</div>`;
             return;
         }
 
         list.forEach(res => {
             const div = document.createElement('div');
-            div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100 items-center justify-between";
+            div.className = "bg-white p-4 rounded-lg flex gap-4 cursor-pointer shadow-sm border border-gray-100 items-center justify-between hover:border-gray-200 transition-colors";
             
             const infoDiv = document.createElement('div');
             infoDiv.className = "flex gap-4 flex-1";
             infoDiv.onclick = () => showRestaurantDetail(res.id);
             
+            // 일반 음식점 이미지 대응 (혹시 모를 이미지 업로드 확장용)
             const imgHtml = (res.img) 
                 ? `<img src="${res.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` 
                 : `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">${currentCategory === '가민G마트' ? '📦' : '🏠'}</div>`;
@@ -378,18 +380,56 @@
             infoDiv.innerHTML = `${imgHtml}<div><h3 class="font-bold text-gray-800">${res.name}<span class="text-xs text-blue-500 font-normal">${currentCategory === "가민G마트" ? martCatLabel : ''}</span></h3><p class="text-xs text-gray-400 mt-1">${subText}</p></div>`;
             div.appendChild(infoDiv);
 
+            // 제어 버튼 영역 (음식점/마트 공통 UI 제공)
+            const btnGroup = document.createElement('div');
+            btnGroup.className = "flex gap-1 pl-2 relative z-10";
+            
             if(currentCategory === "가민G마트") {
-                const btnGroup = document.createElement('div');
-                btnGroup.className = "flex gap-1 pl-2";
                 btnGroup.innerHTML = `
                     <button onclick="showEditMartItemModal(${res.id})" class="text-[11px] px-2 py-1.5 border border-blue-200 rounded-md bg-white text-blue-500 font-bold hover:bg-blue-50">수정</button>
                     <button onclick="deleteMartItem(${res.id})" class="text-[11px] px-2 py-1.5 border border-red-200 rounded-md bg-white text-red-500 font-bold hover:bg-red-50">삭제</button>
                 `;
-                div.appendChild(btnGroup);
+            } else {
+                // 일반 음식점 관리용 수정, 삭제 버튼 바인딩
+                btnGroup.innerHTML = `
+                    <button onclick="showEditRestaurantModal(${res.id})" class="text-[11px] px-2 py-1.5 border border-blue-200 rounded-md bg-white text-blue-500 font-bold hover:bg-blue-50">수정</button>
+                    <button onclick="deleteRestaurant(${res.id})" class="text-[11px] px-2 py-1.5 border border-red-200 rounded-md bg-white text-red-500 font-bold hover:bg-red-50">삭제</button>
+                `;
             }
-
+            div.appendChild(btnGroup);
             container.appendChild(div);
         });
+    }
+
+    // 🏠 음식점 수정 기능 추가
+    function showEditRestaurantModal(id) {
+        const res = db.restaurants.find(r => r.id === id);
+        if(!res) return;
+
+        openModal("음식점 정보 수정", `
+            <label class="text-xs text-gray-500 font-bold mb-1 block">음식점 이름</label>
+            <input id="edit-res-name" type="text" value="${res.name}" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">
+        `, () => {
+            const newName = document.getElementById('edit-res-name').value.trim();
+            if(!newName) return alert("식당 이름을 입력해주세요.");
+            
+            res.name = newName;
+            saveDB();
+            renderRestaurants();
+            closeModal();
+        });
+    }
+
+    // 🏠 음식점 삭제 기능 추가
+    function deleteRestaurant(id) {
+        const res = db.restaurants.find(r => r.id === id);
+        if(!res) return;
+
+        if(confirm(`[${res.name}] 음식점을 완전히 삭제하시겠습니까?\n등록된 하위 메뉴 데이터도 함께 유실됩니다.`)) {
+            db.restaurants = db.restaurants.filter(r => r.id !== id);
+            saveDB();
+            renderRestaurants();
+        }
     }
 
     function showEditMartItemModal(id) {
@@ -441,6 +481,7 @@
     function showRestaurantDetail(id) {
         currentRestaurantId = id;
         const res = db.restaurants.find(r => r.id === id);
+        if(!res) return;
         showSection('restaurant-detail-section');
         
         const infoArea = document.getElementById('restaurant-info');
@@ -721,7 +762,7 @@
             });
         } else {
             openModal("가게 등록", `<input id="new-res-name" type="text" placeholder="식당 이름을 입력하세요" class="w-full border p-3 rounded-lg text-sm">`, () => {
-                const name = document.getElementById('new-res-name').value;
+                const name = document.getElementById('new-res-name').value.trim();
                 if(!name) return;
                 db.restaurants.push({ id: Date.now(), category: currentCategory, name: name, menus: { normal: [], set: [], side: [] } });
                 saveDB(); renderRestaurants(); closeModal();
