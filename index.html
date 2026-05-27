@@ -43,6 +43,13 @@
         <div id="search-results-container" class="grid gap-4"></div>
     </section>
 
+    <section id="category-management-section" class="mb-4 bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+        <span class="text-sm font-bold text-gray-700">원하는 카테고리를 관리해보세요</span>
+        <div class="flex gap-1">
+            <button onclick="addNewGlobalCategoryDirect()" class="bg-amber-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-amber-600">➕ 카테고리 추가</button>
+            <button onclick="showDeleteGlobalCategoryModal()" class="bg-red-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-red-600">❌ 카테고리 삭제</button>
+        </div>
+    </section>
     <section id="category-section" class="grid grid-cols-4 gap-4 text-center mb-8"></section>
 
     <section id="restaurant-list-section" class="hidden">
@@ -51,7 +58,6 @@
             <button id="add-item-btn" onclick="showAddRestaurantModal()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">+ 음식점 추가</button>
         </div>
 
-        <!-- 가민G마트 메인 상단 전용 카테고리 제어 영역 (추가, 수정, 삭제 통합 버튼 배치) -->
         <div id="mart-main-filter-container" class="bg-white p-4 shadow-sm rounded-lg mb-4 hidden flex flex-col gap-3">
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <span class="text-xs text-gray-400 font-bold">* 분류 버튼을 눌러 원하는 상품 카테고리만 확인하세요.</span>
@@ -71,12 +77,10 @@
     <section id="restaurant-detail-section" class="hidden">
         <div id="restaurant-info" class="bg-white p-6 rounded-t-xl shadow-sm mb-2 border-b"></div>
         
-        <!-- 가민G마트 전용 단일 상품 상세 컨테이너 -->
         <div id="mart-product-container" class="flex flex-col gap-4 hidden">
             <div id="mart-items-list-box" class="grid gap-4"></div>
         </div>
 
-        <!-- 기존 음식점용 3단 메뉴 서브 카테고리 -->
         <div id="menu-sub-categories" class="flex flex-col gap-4">
             <div class="bg-white p-4 shadow-sm">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -136,25 +140,89 @@
 </div>
 
 <script>
-    const categories = ["가민G마트", "분식", "고기", "치킨", "패스트푸드", "피자", "족발", "야식", "국·탕·찌개", "찜", "도시락", "카페·베이커리", "디저트", "고급요리", "한식", "중식", "일식", "동남아시아", "남아시아", "서아시아", "중앙아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "동아프리카", "서아프리카", "남아프리카", "북아프리카", "미국", "북미", "남미", "카리브해", "오세아니아", "호주", "뉴질랜드"];
+    // 초기 기본 대분류 카테고리 데이터 백업 목록
+    const defaultGlobalCategories = ["가민G마트", "분식", "고기", "치킨", "패스트푸드", "피자", "족발", "야식", "국·탕·찌개", "찜", "도시락", "카페·베이커리", "디저트", "고급요리", "한식", "중식", "일식", "동남아시아", "남아시아", "서아시아", "중앙아시아", "동유럽", "서유럽", "남유럽", "북유럽", "중유럽", "동아프리카", "서아프리카", "남아프리카", "북아프리카", "미국", "북미", "남미", "카리브해", "오세아니아", "호주", "뉴질랜드"];
     
-    let db = JSON.parse(localStorage.getItem('deliveryDB_v4')) || { restaurants: [], cart: [], globalMartCategories: ["식료품", "생활용품", "신선식품"] };
+    // DB 로드 및 초기 데이터 설정 구조 선언
+    let db = JSON.parse(localStorage.getItem('deliveryDB_v4')) || { 
+        restaurants: [], 
+        cart: [], 
+        globalMartCategories: ["식료품", "생활용품", "신선식품"],
+        globalCategories: defaultGlobalCategories
+    };
+
+    // 혹시 기존 DB에 대분류 카테고리 리스트 속성이 누락되었을 경우 하위 호환 가드 레이어 구성
+    if(!db.globalCategories) {
+        db.globalCategories = defaultGlobalCategories;
+        localStorage.setItem('deliveryDB_v4', JSON.stringify(db));
+    }
+
     let currentCategory = "";
     let currentRestaurantId = null;
     let selectedMartFilter = "all"; 
 
     function init() {
+        renderGlobalCategories();
+        updateCartCount();
+    }
+
+    // 🏠 메인 화면 대분류 카테고리 동적 렌더링 함수
+    function renderGlobalCategories() {
         const catContainer = document.getElementById('category-section');
         catContainer.innerHTML = ""; 
-        categories.forEach(cat => {
+        
+        db.globalCategories.forEach(cat => {
             const div = document.createElement('div');
             div.className = "bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:scale-105 transition-transform border border-transparent hover:border-[#2ac1bc]";
             const icon = cat === "가민G마트" ? "🛒" : "🍴";
-            div.innerHTML = `<div class="text-2xl mb-1">${icon}</div><div class="text-xs font-bold text-gray-700">${cat}</div>`;
+            div.innerHTML = `<div class="text-2xl mb-1">${icon}</div><div class="text-xs font-bold text-gray-700 break-all">${cat}</div>`;
             div.onclick = () => showRestaurantList(cat);
             catContainer.appendChild(div);
         });
-        updateCartCount();
+    }
+
+    // ➕ 메인 화면 대분류 카테고리 직접 추가 기능
+    function addNewGlobalCategoryDirect() {
+        const newCatName = prompt("새롭게 추가할 대분류 카테고리명을 입력하세요:");
+        if (newCatName && newCatName.trim() !== "") {
+            const trimmedName = newCatName.trim();
+            if (!db.globalCategories.includes(trimmedName)) {
+                db.globalCategories.push(trimmedName);
+                saveDB();
+                renderGlobalCategories();
+            } else {
+                alert("이미 존재하는 카테고리 이름입니다.");
+            }
+        }
+    }
+
+    // ❌ 메인 화면 대분류 카테고리 제거 모달 기능
+    function showDeleteGlobalCategoryModal() {
+        if (!db.globalCategories || db.globalCategories.length === 0) return alert("삭제할 카테고리가 없습니다.");
+        
+        let optionsHtml = db.globalCategories.map((c, i) => `<option value="${i}">${c}</option>`).join('');
+        
+        openModal("대분류 카테고리 삭제", `
+            <p class="text-xs text-red-500 font-bold mb-2">* 주의: 카테고리가 삭제되면 소속되어 있던 모든 음식점 및 상품 데이터가 함께 영구 삭제됩니다.</p>
+            <div>
+                <label class="text-xs text-gray-500 font-bold mb-1 block">삭제할 카테고리 선택</label>
+                <select id="delete-global-cat-index" class="w-full border p-2 rounded text-sm bg-white">${optionsHtml}</select>
+            </div>
+        `, () => {
+            const idx = parseInt(document.getElementById('delete-global-cat-index').value);
+            const targetCategoryName = db.globalCategories[idx];
+            
+            if (confirm(`[${targetCategoryName}] 카테고리와 소속된 모든 상점/상품 데이터를 완전히 삭제하시겠습니까?`)) {
+                // 해당 카테고리에 속한 하위 음식점/마트 상품들 일괄 데이터 필터링 제거
+                db.restaurants = db.restaurants.filter(r => r.category !== targetCategoryName);
+                // 카테고리 배열 목록에서 제거
+                db.globalCategories.splice(idx, 1);
+                
+                saveDB();
+                renderGlobalCategories();
+            }
+            closeModal();
+        });
     }
 
     function handleImageDrop(e, inputId) {
@@ -199,6 +267,14 @@
     function showSection(id) {
         document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
         document.getElementById(id).classList.remove('hidden');
+        
+        // 홈 카테고리 섹션 표출 시 제어 상단바 동시 동기화 연동
+        if(id === 'category-section') {
+            document.getElementById('category-management-section').classList.remove('hidden');
+        } else {
+            document.getElementById('category-management-section').classList.add('hidden');
+        }
+        
         window.scrollTo(0,0);
         if(id === 'cart-section') renderCart();
     }
@@ -247,7 +323,6 @@
         btnContainer.appendChild(uncatBtn);
     }
 
-    // ➕ 카테고리 추가 기능
     function addNewMartCategoryDirect() {
         const newCatName = prompt("새롭게 추가 지정할 마트 카테고리명을 직접 입력하세요:");
         if(newCatName && newCatName.trim() !== "") {
@@ -261,7 +336,6 @@
         }
     }
 
-    // ✏️ 카테고리 수정 모달창 호출
     function showEditMartCategoryModal() {
         if(!db.globalMartCategories || db.globalMartCategories.length === 0) return alert("수정할 카테고리가 없습니다.");
         
@@ -284,7 +358,6 @@
             
             const oldName = db.globalMartCategories[idx];
             
-            // 기존 등록 상품들의 카테고리 명칭 동시 일괄 치환 업데이트
             db.restaurants.forEach(r => {
                 if(r.category === "가민G마트" && r.martCategory === oldName) {
                     r.martCategory = newName;
@@ -292,7 +365,7 @@
             });
             
             db.globalMartCategories[idx] = newName;
-            selectedMartFilter = "all"; // 필터 안전 리셋
+            selectedMartFilter = "all"; 
             saveDB();
             renderMartMainCategoryButtons();
             renderRestaurants();
@@ -300,7 +373,6 @@
         });
     }
 
-    // ❌ 카테고리 삭제 모달창 호출
     function showDeleteMartCategoryModal() {
         if(!db.globalMartCategories || db.globalMartCategories.length === 0) return alert("삭제할 카테고리가 없습니다.");
         
@@ -317,7 +389,6 @@
             const targetName = db.globalMartCategories[idx];
             
             if(confirm(`[${targetName}] 카테고리를 완전히 삭제하시겠습니까?`)) {
-                // 기존 소속 상품들 미분류 공백으로 밀어내기 처리
                 db.restaurants.forEach(r => {
                     if(r.category === "가민G마트" && r.martCategory === targetName) {
                         r.martCategory = "";
@@ -325,7 +396,7 @@
                 });
                 
                 db.globalMartCategories.splice(idx, 1);
-                selectedMartFilter = "all"; // 필터 안전 리셋
+                selectedMartFilter = "all"; 
                 saveDB();
                 renderMartMainCategoryButtons();
                 renderRestaurants();
@@ -369,7 +440,6 @@
             infoDiv.className = "flex gap-4 flex-1";
             infoDiv.onclick = () => showRestaurantDetail(res.id);
             
-            // 일반 음식점 이미지 대응 (혹시 모를 이미지 업로드 확장용)
             const imgHtml = (res.img) 
                 ? `<img src="${res.img}" class="w-16 h-16 object-cover rounded-lg shadow-sm">` 
                 : `<div class="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-xl">${currentCategory === '가민G마트' ? '📦' : '🏠'}</div>`;
@@ -380,7 +450,6 @@
             infoDiv.innerHTML = `${imgHtml}<div><h3 class="font-bold text-gray-800">${res.name}<span class="text-xs text-blue-500 font-normal">${currentCategory === "가민G마트" ? martCatLabel : ''}</span></h3><p class="text-xs text-gray-400 mt-1">${subText}</p></div>`;
             div.appendChild(infoDiv);
 
-            // 제어 버튼 영역 (음식점/마트 공통 UI 제공)
             const btnGroup = document.createElement('div');
             btnGroup.className = "flex gap-1 pl-2 relative z-10";
             
@@ -390,7 +459,6 @@
                     <button onclick="deleteMartItem(${res.id})" class="text-[11px] px-2 py-1.5 border border-red-200 rounded-md bg-white text-red-500 font-bold hover:bg-red-50">삭제</button>
                 `;
             } else {
-                // 일반 음식점 관리용 수정, 삭제 버튼 바인딩
                 btnGroup.innerHTML = `
                     <button onclick="showEditRestaurantModal(${res.id})" class="text-[11px] px-2 py-1.5 border border-blue-200 rounded-md bg-white text-blue-500 font-bold hover:bg-blue-50">수정</button>
                     <button onclick="deleteRestaurant(${res.id})" class="text-[11px] px-2 py-1.5 border border-red-200 rounded-md bg-white text-red-500 font-bold hover:bg-red-50">삭제</button>
@@ -401,7 +469,6 @@
         });
     }
 
-    // 🏠 음식점 수정 기능 추가
     function showEditRestaurantModal(id) {
         const res = db.restaurants.find(r => r.id === id);
         if(!res) return;
@@ -420,7 +487,6 @@
         });
     }
 
-    // 🏠 음식점 삭제 기능 추가
     function deleteRestaurant(id) {
         const res = db.restaurants.find(r => r.id === id);
         if(!res) return;
